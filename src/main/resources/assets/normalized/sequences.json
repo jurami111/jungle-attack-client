@@ -1,0 +1,92 @@
+{
+  "canvasWidth": 512,
+  "canvasHeight": 512,
+  "animals": [
+    {
+      "id": "mariposa",
+      "idleFrame": 1,
+      "frameDurationMs": 150,
+      "sequence": [1, 2],
+      "frames": [
+        {"file": "mariposa/mariposa-1.svg", "source": "Miroposa-morpho.svg"},
+        {"file": "mariposa/mariposa-2.svg", "source": "Mariposa-1.svg"}
+      ]
+    },
+    {
+      "id": "mono",
+      "idleFrame": 1,
+      "frameDurationMs": 150,
+      "sequence": [2, 3, 4, 5],
+      "frames": [
+        {"file": "mono/mono-1.svg", "source": "Mono-titi (1).svg"},
+        {"file": "mono/mono-2.svg", "source": "mono-1.svg"},
+        {"file": "mono/mono-3.svg", "source": "mono-2.svg"},
+        {"file": "mono/mono-4.svg", "source": "mono-3-sin-fondo.svg"},
+        {"file": "mono/mono-5.svg", "source": "mono-4-sin-fondo.svg"}
+      ]
+    },
+    {
+      "id": "perezoso",
+      "idleFrame": 1,
+      "frameDurationMs": 250,
+      "sequence": [2, 3, 4, 5, 6],
+      "frames": [
+        {"file": "perezoso/perezoso-1.svg", "source": "Peresozo-A.svg"},
+        {"file": "perezoso/perezoso-2.svg", "source": "peresozo-1-sin-fondo.svg"},
+        {"file": "perezoso/perezoso-3.svg", "source": "perezoso-2-sin-fondo.svg"},
+        {"file": "perezoso/perezoso-4.svg", "source": "perezoso-3.svg"},
+        {"file": "perezoso/perezoso-5.svg", "source": "perezoso-4.svg"},
+        {"file": "perezoso/perezoso-6.svg", "source": "perezoso-5-sin-fondo.svg"}
+      ]
+    },
+    {
+      "id": "rana",
+      "idleFrame": 1,
+      "frameDurationMs": 150,
+      "sequence": [2, 3, 4, 5],
+      "frames": [
+        {"file": "rana/rana-1.svg", "source": "Rana-verde.svg"},
+        {"file": "rana/rana-2.svg", "source": "rana-2.svg"},
+        {"file": "rana/rana-3.svg", "source": "rana-3.svg"},
+        {"file": "rana/rana-4.svg", "source": "rana-4.svg"},
+        {"file": "rana/rana-5.svg", "source": "rana-5-sin-fondo.svg"}
+      ]
+    },
+    {
+      "id": "serpiente",
+      "idleFrame": 1,
+      "frameDurationMs": 180,
+      "sequence": [2, 3, 4, 3],
+      "frames": [
+        {"file": "serpiente/serpiente-1.svg", "source": "Serpiente-Terciopelo.svg"},
+        {"file": "serpiente/serpiente-2.svg", "source": "serpiente-1.svg"},
+        {"file": "serpiente/serpiente-3.svg", "source": "serpiente-2.svg"},
+        {"file": "serpiente/serpiente-4.svg", "source": "serpiente-3.svg"}
+      ]
+    },
+    {
+      "id": "tortuga",
+      "idleFrame": 1,
+      "frameDurationMs": 180,
+      "sequence": [2, 3, 4, 3],
+      "frames": [
+        {"file": "tortuga/tortuga-1.svg", "source": "Tortuga-marina.svg"},
+        {"file": "tortuga/tortuga-2.svg", "source": "totuga-1.svg"},
+        {"file": "tortuga/tortuga-3.svg", "source": "tortuga-3.svg"},
+        {"file": "tortuga/tortuga-4.svg", "source": "totuga-5.svg"}
+      ]
+    },
+    {
+      "id": "yiguirro",
+      "idleFrame": 1,
+      "frameDurationMs": 100,
+      "sequence": [1, 2, 3, 4, 3, 2],
+      "frames": [
+        {"file": "yiguirro/yiguirro-1.svg", "source": "Yiguirro-A.svg"},
+        {"file": "yiguirro/yiguirro-2.svg", "source": "yiguirro-3.svg"},
+        {"file": "yiguirro/yiguirro-3.svg", "source": "yiguirro-2.svg"},
+        {"file": "yiguirro/yiguirro-4.svg", "source": "yiguirro-1.svg"}
+      ]
+    }
+  ]
+}

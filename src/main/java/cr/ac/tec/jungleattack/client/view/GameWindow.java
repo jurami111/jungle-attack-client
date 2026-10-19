@@ -13,7 +13,7 @@ public class GameWindow extends JFrame {
 
     setTitle(UIConstants.WINDOW_TITLE);
     setSize(UIConstants.WINDOW_WIDTH, UIConstants.WINDOW_HEIGHT);
-    setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);// guarda el cache 
+    setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);// CONFIGURA EL CIERRE 
     setContentPane(new MapPanel(spriteCache));
     setLocationRelativeTo(null); // centra la ventana en la pantalla
 }

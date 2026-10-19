@@ -1,0 +1,147 @@
+{
+  "connections": [
+    {
+      "label": "Cerro Zurqui - Volcan Poas (tunel y rodeo)",
+      "fromZoneId": "CERRO_ZURQUI",
+      "toZoneId": "VOLCAN_POAS",
+      "points": [
+        {"x":1508,"y":308},{"x":1508,"y":364},{"x":1508,"y":668},
+        {"x":1390,"y":675},{"x":1320,"y":700},{"x":1270,"y":750},
+        {"x":1240,"y":820},{"x":1240,"y":900},{"x":1260,"y":980},
+        {"x":1300,"y":1030},{"x":1350,"y":1100},{"x":1410,"y":1135},
+        {"x":1510,"y":1160}
+      ],
+      "hiddenSegments": [1]
+    },
+    {
+      "label": "Playa Conchal - Monteverde",
+      "fromZoneId": "PLAYA_CONCHAL",
+      "toZoneId": "MONTEVERDE",
+      "points": [
+        {"x":430,"y":310},{"x":710,"y":310},{"x":740,"y":300},
+        {"x":790,"y":310},{"x":850,"y":320},{"x":900,"y":322}
+      ],
+      "hiddenSegments": []
+    },
+    {
+      "label": "Monteverde - Cerro Zurqui (tunel)",
+      "fromZoneId": "MONTEVERDE",
+      "toZoneId": "CERRO_ZURQUI",
+      "points": [
+        {"x":900,"y":322},{"x":960,"y":320},{"x":1010,"y":310},
+        {"x":1076,"y":300},{"x":1100,"y":310},{"x":1300,"y":308},{"x":1508,"y":308}
+      ],
+      "hiddenSegments": [6]
+    },
+    {
+      "label": "Cerro Zurqui - Braulio Carrillo (tunel)",
+      "fromZoneId": "CERRO_ZURQUI",
+      "toZoneId": "BRAULIO_CARRILLO",
+      "points": [{"x":1508,"y":308},{"x":1704,"y":308},{"x":1900,"y":308},{"x":1960,"y":308}],
+      "hiddenSegments": [1]
+    },
+    {
+      "label": "Bahia Ballena - Cerro Chirripo",
+      "fromZoneId": "BAHIA_BALLENA",
+      "toZoneId": "CERRO_CHIRRIPO",
+      "points": [
+        {"x":380,"y":1140},{"x":380,"y":1230},{"x":910,"y":1230},{"x":910,"y":1150}
+      ],
+      "hiddenSegments": []
+    },
+    {
+      "label": "Cerro Chirripo - Volcan Poas",
+      "fromZoneId": "CERRO_CHIRRIPO",
+      "toZoneId": "VOLCAN_POAS",
+      "points": [
+        {"x":910,"y":1150},{"x":910,"y":1230},
+        {"x":1510,"y":1230},{"x":1510,"y":1160}
+      ],
+      "hiddenSegments": []
+    },
+    {
+      "label": "Volcan Poas - Volcan Arenal",
+      "fromZoneId": "VOLCAN_POAS",
+      "toZoneId": "VOLCAN_ARENAL",
+      "points": [
+        {"x":1510,"y":1160},{"x":1510,"y":1230},
+        {"x":2110,"y":1230},{"x":2110,"y":1100}
+      ],
+      "hiddenSegments": []
+    },
+    {
+      "label": "Bahia Ballena - Manuel Antonio",
+      "fromZoneId": "BAHIA_BALLENA",
+      "toZoneId": "MANUEL_ANTONIO",
+      "points": [
+        {"x":380,"y":1140},{"x":380,"y":1230},{"x":380,"y":1390},
+        {"x":370,"y":1430},{"x":350,"y":1450},{"x":330,"y":1450}
+      ],
+      "hiddenSegments": []
+    },
+    {
+      "label": "Cerro Chirripo - Tortuguero",
+      "fromZoneId": "CERRO_CHIRRIPO",
+      "toZoneId": "TORTUGUERO",
+      "points": [
+        {"x":910,"y":1150},{"x":910,"y":1230},
+        {"x":910,"y":1360},{"x":910,"y":1390},{"x":910,"y":1526}
+      ],
+      "hiddenSegments": []
+    },
+    {
+      "label": "Volcan Poas - Tamarindo",
+      "fromZoneId": "VOLCAN_POAS",
+      "toZoneId": "TAMARINDO",
+      "points": [
+        {"x":1510,"y":1160},{"x":1510,"y":1230},{"x":1510,"y":1440}
+      ],
+      "hiddenSegments": []
+    },
+    {
+      "label": "Braulio Carrillo - Volcan Arenal",
+      "fromZoneId": "BRAULIO_CARRILLO",
+      "toZoneId": "VOLCAN_ARENAL",
+      "points": [
+        {"x":1960,"y":308},{"x":1960,"y":370},{"x":2050,"y":390},
+        {"x":2110,"y":400},{"x":2110,"y":690},{"x":2050,"y":700},
+        {"x":1980,"y":740},{"x":1930,"y":790},{"x":1890,"y":850},
+        {"x":1870,"y":900},{"x":1910,"y":970},{"x":1960,"y":1015},
+        {"x":2010,"y":1020},{"x":2240,"y":1020},{"x":2240,"y":1100},
+        {"x":2110,"y":1100}
+      ],
+      "hiddenSegments": []
+    },
+    {
+      "label": "Manuel Antonio - Tortuguero",
+      "fromZoneId": "MANUEL_ANTONIO",
+      "toZoneId": "TORTUGUERO",
+      "points": [
+        {"x":330,"y":1450},{"x":350,"y":1450},{"x":370,"y":1430},
+        {"x":380,"y":1390},{"x":380,"y":1230},{"x":910,"y":1230},
+        {"x":910,"y":1360},{"x":910,"y":1390},{"x":910,"y":1526}
+      ],
+      "hiddenSegments": []
+    },
+    {
+      "label": "Tortuguero - Tamarindo",
+      "fromZoneId": "TORTUGUERO",
+      "toZoneId": "TAMARINDO",
+      "points": [
+        {"x":910,"y":1526},{"x":910,"y":1390},{"x":910,"y":1360},
+        {"x":910,"y":1230},{"x":1510,"y":1230},{"x":1510,"y":1440}
+      ],
+      "hiddenSegments": []
+    },
+    {
+      "label": "Volcan Arenal - Cerro de la Muerte",
+      "fromZoneId": "VOLCAN_ARENAL",
+      "toZoneId": "CERRO_DE_LA_MUERTE",
+      "points": [
+        {"x":2110,"y":1100},{"x":2110,"y":1230},
+        {"x":1840,"y":1230},{"x":1840,"y":1510}
+      ],
+      "hiddenSegments": []
+    }
+  ]
+}

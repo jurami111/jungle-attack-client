@@ -1,0 +1,16 @@
+{
+  "zones": [
+    {"id": "PLAYA_CONCHAL", "name": "Playa Conchal", "x": 0, "y": 0, "width": 600, "height": 600},
+    {"id": "MONTEVERDE", "name": "Monteverde", "x": 600, "y": 0, "width": 600, "height": 600},
+    {"id": "CERRO_ZURQUI", "name": "Cerro Zurqui", "x": 1200, "y": 0, "width": 600, "height": 600},
+    {"id": "BRAULIO_CARRILLO", "name": "Braulio Carrillo", "x": 1800, "y": 0, "width": 600, "height": 600},
+    {"id": "BAHIA_BALLENA", "name": "Bahia Ballena", "x": 0, "y": 600, "width": 600, "height": 600},
+    {"id": "CERRO_CHIRRIPO", "name": "Cerro Chirripo", "x": 600, "y": 600, "width": 600, "height": 600},
+    {"id": "VOLCAN_POAS", "name": "Volcan Poas", "x": 1200, "y": 600, "width": 600, "height": 600},
+    {"id": "VOLCAN_ARENAL", "name": "Volcan Arenal", "x": 1800, "y": 600, "width": 600, "height": 600},
+    {"id": "MANUEL_ANTONIO", "name": "Manuel Antonio", "x": 0, "y": 1200, "width": 600, "height": 592},
+    {"id": "TORTUGUERO", "name": "Tortuguero", "x": 600, "y": 1200, "width": 600, "height": 592},
+    {"id": "TAMARINDO", "name": "Tamarindo", "x": 1200, "y": 1200, "width": 600, "height": 592},
+    {"id": "CERRO_DE_LA_MUERTE", "name": "Cerro de la Muerte", "x": 1800, "y": 1200, "width": 600, "height": 592}
+  ]
+}
