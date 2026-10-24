@@ -5,7 +5,9 @@ import java.awt.Color;
 import java.awt.FlowLayout;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
+import java.awt.Point;
 import java.awt.geom.AffineTransform;
+import java.awt.geom.Ellipse2D;
 import java.awt.geom.Path2D;
 import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
@@ -13,10 +15,11 @@ import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
-import java.util.List;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Optional;
+import java.util.function.Consumer;
 
 import javax.swing.JButton;
 import javax.swing.JComboBox;
@@ -29,7 +32,9 @@ import com.google.gson.Strictness;
 
 import cr.ac.tec.jungleattack.client.config.UIConstants;
 import cr.ac.tec.jungleattack.client.controller.Animator;
+import cr.ac.tec.jungleattack.client.model.ClickableAnimal;
 import cr.ac.tec.jungleattack.client.model.Connection;
+import cr.ac.tec.jungleattack.client.view.utils.EnergyBar;
 import cr.ac.tec.jungleattack.client.view.utils.FogOfWar;
 import cr.ac.tec.jungleattack.client.view.utils.SpriteAnimation;
 import cr.ac.tec.jungleattack.client.view.utils.SpriteCache;// caché de sprites para el panel del mapa
@@ -53,6 +58,11 @@ public class MapPanel extends JPanel {
     private final JButton movementButton;
     private final Animator animator;
     private Optional<Animator.State> animalState = Optional.empty();
+    private int displayedAnimalEnergy = UIConstants.MAX_PLAYER_ENERGY;
+    // lista de animales seleccionados actualmente en el panel del mapa
+    private List<ClickableAnimal> selectedAnimals = List.of();
+    private Consumer<String> zoneRequestHandler;
+    private boolean updatingZones;
 
     public MapPanel(SpriteCache spriteCache) { // constructor del panel del mapa
         mapImage = spriteCache.getImage("Mapa.svg");
@@ -83,7 +93,13 @@ public class MapPanel extends JPanel {
         zones.forEach(zone -> zoneLabels.add(zone.name()));
         zoneSelector = new JComboBox<>(zoneLabels.toArray(String[]::new));
         zoneSelector.setToolTipText("Zona visible: el resto del mapa queda cubierto por la niebla");
-        zoneSelector.addActionListener(event -> repaint());
+        zoneSelector.addActionListener(event -> {
+            if (!updatingZones && zoneRequestHandler != null
+                    && zoneSelector.getSelectedItem() instanceof String zone) {
+                zoneRequestHandler.accept(zone);
+            }
+            repaint();
+        });
         movementStatus = new JLabel(" ");
         movementStatus.setOpaque(true);
         movementStatus.setBackground(Color.WHITE);
@@ -137,8 +153,66 @@ public class MapPanel extends JPanel {
 
     // la primera opcion del selector muestra todo el mapa; las demas corresponden a cada zona
     private Optional<ZoneArea> selectedZone() {
-        int index = zoneSelector.getSelectedIndex();
-        return index >= 1 ? Optional.of(zones.get(index - 1)) : Optional.empty();
+        return zones.stream().filter(zone -> zone.name().equals(zoneSelector.getSelectedItem())).findFirst();
+    }
+    // establece el manejador de solicitudes de cambio de zona
+    public void setZoneRequestHandler(Consumer<String> handler) {
+        zoneRequestHandler = handler;
+    }
+    // verifica si existe una zona con el nombre dado
+    public boolean hasZone(String name) {
+        return zones.stream().anyMatch(zone -> zone.name().equals(name));
+    }
+    // muestra las zonas del juego en el selector y selecciona la zona indicada
+    public void showGameZones(List<String> names, String selectedName) {
+        updatingZones = true;
+        try {
+            boolean sameNames = zoneSelector.getItemCount() == names.size();
+            // comprueba si los nombres de las zonas en el selector coinciden con los nombres proporcionados
+            for (int i = 0; sameNames && i < names.size(); i++) {
+                sameNames = names.get(i).equals(zoneSelector.getItemAt(i));
+            }
+            // si los nombres no coinciden, se actualiza el selector con los nuevos nombres
+            if (!sameNames) {
+                zoneSelector.removeAllItems();
+                names.forEach(zoneSelector::addItem);
+            }
+            // selecciona la zona indicada en el selector
+            zoneSelector.setSelectedItem(selectedName);
+            // marca que se está actualizando el selector para evitar disparar eventos innecesarios
+        } finally {
+            updatingZones = false;
+        }
+        repaint();
+    }
+
+    public boolean isVisiblePoint(double x, double y) {
+        return selectedZone().map(zone -> zone.bounds().contains(x, y)).orElse(false);
+    }
+
+    private double mapScale(BufferedImage image) {
+        return Math.min(getWidth() / (double) image.getWidth(), getHeight() / (double) image.getHeight());
+    }
+    // convierte un punto de la interfaz a un punto en el mapa, considerando la escala y el centrado de la imagen
+    public Optional<Point2D.Double> toMapPoint(Point point) {
+        if (mapImage.isEmpty() || getWidth() <= 0 || getHeight() <= 0) {
+            return Optional.empty();
+        }
+        BufferedImage image = mapImage.get();
+        double scale = mapScale(image);
+        double x = (point.x - (getWidth() - image.getWidth() * scale) / 2) / scale;
+        double y = (point.y - (getHeight() - image.getHeight() * scale) / 2) / scale;
+        return x >= 0 && y >= 0 && x < image.getWidth() && y < image.getHeight()
+                ? Optional.of(new Point2D.Double(x, y)) : Optional.empty();
+    }
+
+    public void showSelection(List<ClickableAnimal> animals) {
+        selectedAnimals = List.copyOf(animals);
+        repaint();
+    }
+
+    public void showInteractionStatus(String message) {
+        movementStatus.setText(message);
     }
 
     private Optional<Route> selectedRoute() {
@@ -174,9 +248,7 @@ public class MapPanel extends JPanel {
 
             BufferedImage image = mapImage.get(); // obtiene la imagen del mapa del Optional
 
-            double scale = Math.min(// calcula la escala para ajustar la imagen del mapa al tamaño del panel
-                    getWidth() / (double) image.getWidth(),
-                    getHeight() / (double) image.getHeight());
+            double scale = mapScale(image);
 
             double x = (getWidth() - image.getWidth() * scale) / 2;
             double y = (getHeight() - image.getHeight() * scale) / 2;
@@ -210,6 +282,17 @@ public class MapPanel extends JPanel {
                 placement.scale(animalScale, animalScale);
                 placement.translate(-animal.getWidth() / 2.0, -animal.getHeight() / 2.0);
                 graphics2D.drawImage(animal, placement, this);
+                EnergyBar.paint(graphics2D, animalX,
+                        animalY - UIConstants.TEST_ANIMAL_SIZE / 2.0
+                                - UIConstants.ENERGY_BAR_GAP - UIConstants.ENERGY_BAR_HEIGHT,
+                        displayedAnimalEnergy, UIConstants.MAX_PLAYER_ENERGY);
+            }
+            graphics2D.setColor(UIConstants.ANIMAL_SELECTION_COLOR);
+            graphics2D.setStroke(new BasicStroke(UIConstants.ANIMAL_SELECTION_WIDTH));
+            for (ClickableAnimal animal : selectedAnimals) {
+                double radius = UIConstants.ANIMAL_CLICK_RADIUS;
+                graphics2D.draw(new Ellipse2D.Double(animal.x() - radius, animal.y() - radius,
+                        radius * 2, radius * 2));
             }
             selectedZone().ifPresent(zone -> FogOfWar.paint(graphics2D,
                     new Rectangle2D.Double(0, 0, image.getWidth(), image.getHeight()), zone.bounds()));

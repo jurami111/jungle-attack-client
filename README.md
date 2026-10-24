@@ -81,9 +81,14 @@ Un error del recurso se informa por stderr y el mapa sigue disponible.
 Las conexiones visibles muestran el mono en reposo al inicio de la conexion.
 Usa `getAnimation("mono").idleImage()` sin modificar la imagen del cache.
 El centro de su lienzo coincide con el primer punto; `TEST_ANIMAL_SIZE`
-define el lado mayor en unidades del mapa (120), conservando la proporcion.
+define el lado mayor en unidades del mapa (48), conservando la proporcion.
+La barra mide 36 x 5 unidades y se separa 4 unidades del sprite.
+El radio de clic y del aro de seleccion es 24; el aro tiene grosor 2.
 El animal se dibuja sobre el resaltado y comparte la escala del mapa.
 Si falta la animacion, se informa por stderr y se conserva el mapa.
+Sobre el mono visible se dibuja una barra de energia. Por ahora muestra
+temporalmente la energia inicial completa del jugador (20/20); el maximo de
+los bots es 10. La energia real se conectara al dato recibido del servidor.
 El boton "Probar movimiento" inicia el recorrido a `TEST_MOVEMENT_SPEED`
 unidades del mapa por segundo (100). La duracion depende de la longitud
 completa de cada recorrido. `Animator` usa `javax.swing.Timer` cada 33 ms y
@@ -214,3 +219,76 @@ Las instrucciones indican que el jugador ve una sola zona a la vez y que la
 visibilidad la decide el servidor. Mientras no exista la conexion, el selector
 "Sin niebla (todo el mapa)" / zona permite probarla manualmente; la primera
 opcion conserva las pruebas de rutas sobre el mapa completo.
+
+## Clics: seleccion y comandos para la integracion
+
+`GameWindow` crea un `GameController` y lo conecta al `MapPanel`.
+El clic izquierdo selecciona un animal propio vivo; Ctrl + clic izquierdo
+agrega o quita un miembro. Un clic izquierdo en espacio vacio limpia la
+seleccion, salvo que se mantenga Ctrl. La seleccion se resalta en amarillo.
+El clic derecho sobre otro animal visible solicita ATTACK; sobre espacio
+libre solicita MOVE_ANIMALS. No se puede atacar un animal propio.
+Los clics fuera del mapa o de la zona mostrada no producen comandos.
+Si varios animales estan cerca, se toma el mas cercano dentro de
+`ANIMAL_CLICK_RADIUS`, usando distancias al cuadrado, sin raiz cuadrada.
+
+El controlador serializa con Gson los sobres `type` / `payload`:
+
+```json
+{"type":"MOVE_ANIMALS","payload":{"animalIds":[1,2],"targetX":910.0,"targetY":316.0}}
+{"type":"ATTACK","payload":{"animalIds":[1,2],"targetId":21}}
+{"type":"VIEW_ZONE","payload":{"zone":"Monteverde"}}
+```
+
+Los destinos usan coordenadas del mapa original, no de la ventana.
+Se conservan decimales para no perder precision al deshacer la escala.
+El integrador debe confirmar que el receptor admite numeros JSON decimales.
+El cambio de zona solo ofrece los nombres recibidos en `visibleZones`;
+solicitar una zona no la revela hasta recibir `selectedZone` del servidor.
+Los cambios de estado no reenvian comandos y eliminan de la seleccion
+los animales muertos, ausentes o que ya no estan en la zona mostrada.
+
+### Punto de conexion para el integrante de red
+
+No se implementaron sockets ni se modificaron `NetworkClient` o `MessageSender`.
+El integrador obtiene `gameWindow.getController()` y configura:
+
+```java
+controller.setMessageSender(conexion::enviarLineaJson);
+```
+
+El fragmento anterior es un esquema: `conexion` y `enviarLineaJson` deben
+ser el objeto y metodo reales de envio, con su manejo de errores.
+La funcion recibe un objeto JSON
+serializado, sin salto de linea. La capa de red agrega el delimitador
+y utiliza UTF-8. Entregar una orden a esta funcion no confirma que el
+servidor la haya aceptado.
+
+Con cada GAME_STARTED o STATE_UPDATE, convertir los animales recibidos
+a `ClickableAnimal(id, x, y, alive)` y llamar en el hilo de Swing:
+
+```java
+SwingUtilities.invokeLater(() -> controller.updateState(
+        ownAnimals, visibleAnimals, visibleZoneNames, selectedZoneName));
+```
+
+Son las listas propias y visibles, los nombres de `visibleZones` y el
+nombre de `selectedZone`, no los identificadores internos de `zones.json`.
+El controlador guarda copias de las listas y valida IDs no repetidos,
+coordenadas finitas y nombres de zonas conocidos.
+`ClickableAnimal` solo contiene datos para identificar objetivos de clic;
+no reemplaza al DTO completo ni al modelo del juego.
+
+El dibujo de los sprites de la partida debe usar las mismas posiciones
+que se entreguen al controlador. Esta etapa no implementa ese renderizado:
+el mono y las rutas existentes siguen siendo una demostracion local,
+sin IDs inventados, y no representan a los animales del servidor.
+Hasta recibir datos reales, los clics indican que faltan datos.
+Si falta la funcion de envio, se informa que la orden no fue enviada.
+El cliente no calcula ataques, rutas ni cambios de energia por hacer clic.
+
+Pruebas de esta parte:
+
+```shell
+mvn -Dtest=GameControllerTest,MapPanelTest test
+```

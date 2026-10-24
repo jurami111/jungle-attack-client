@@ -1,0 +1,240 @@
+package cr.ac.tec.jungleattack.client.controller;
+
+import java.awt.Graphics2D;
+import java.awt.event.InputEvent;
+import java.awt.event.MouseEvent;
+import java.awt.image.BufferedImage;
+import java.util.ArrayList;
+import java.util.List;
+
+import javax.swing.JComboBox;
+import javax.swing.JLabel;
+import javax.swing.SwingUtilities;
+
+import com.google.gson.JsonParser;
+
+import cr.ac.tec.jungleattack.client.config.UIConstants;
+import cr.ac.tec.jungleattack.client.model.ClickableAnimal;
+import cr.ac.tec.jungleattack.client.view.MapPanel;
+import cr.ac.tec.jungleattack.client.view.utils.SpriteCache;
+
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+class GameControllerTest {
+    private static final SpriteCache CACHE = new SpriteCache();
+    private static final List<ClickableAnimal> OWN = List.of(
+            new ClickableAnimal(1, 300, 300, true),
+            new ClickableAnimal(2, 320, 300, true),
+            new ClickableAnimal(3, 400, 450, false));
+    private static final List<ClickableAnimal> OTHERS = List.of(
+            new ClickableAnimal(21, 450, 400, true),
+            new ClickableAnimal(22, 900, 300, true));
+    private static final List<String> ZONES = List.of("Playa Conchal", "Monteverde");
+
+    @ParameterizedTest
+    @CsvSource({"1200,896,500,500", "1000,700,501.12,499.2", "600,900,500,500"})
+    void selectsMultipleAnimalsAndBuildsExactCommandsAtDifferentScales(
+            int width, int height, double expectedX, double expectedY) throws Exception {
+        SwingUtilities.invokeAndWait(() -> {
+            MapPanel view = new MapPanel(CACHE);
+            view.setSize(width, height);
+            GameController controller = new GameController(view);
+            List<String> messages = new ArrayList<>();
+            controller.setMessageSender(messages::add);
+            controller.updateState(OWN, OTHERS, ZONES, "Playa Conchal");
+            click(view, 300, 300, MouseEvent.BUTTON1, false);
+            click(view, 320, 300, MouseEvent.BUTTON1, true);
+            assertTrue(messages.isEmpty(), "Seleccionar no envia ninguna orden");
+            click(view, 500, 500, MouseEvent.BUTTON3, false);
+            var expectedMove = JsonParser.parseString("""
+                    {"type":"MOVE_ANIMALS","payload":{"animalIds":[1,2],"targetX":500,"targetY":500}}
+                    """).getAsJsonObject();
+            expectedMove.getAsJsonObject("payload").addProperty("targetX", expectedX);
+            expectedMove.getAsJsonObject("payload").addProperty("targetY", expectedY);
+            assertEquals(expectedMove, JsonParser.parseString(messages.getLast()));
+            click(view, 450, 400, MouseEvent.BUTTON3, false);
+            assertJson("""
+                    {"type":"ATTACK","payload":{"animalIds":[1,2],"targetId":21}}
+                    """, messages.getLast());
+            int previousCount = messages.size();
+            zones(view).setSelectedItem("Monteverde");
+            assertEquals(previousCount + 1, messages.size());
+            assertJson("""
+                    {"type":"VIEW_ZONE","payload":{"zone":"Monteverde"}}
+                    """, messages.getLast());
+            assertEquals("Playa Conchal", zones(view).getSelectedItem(),
+                    "Solicitar una zona no cambia la vista hasta recibir confirmacion");
+            view.removeNotify();
+        });
+    }
+
+    @Test
+    void controlClickTogglesAndPlainClickReplacesOrClearsSelection() throws Exception {
+        SwingUtilities.invokeAndWait(() -> {
+            MapPanel view = new MapPanel(CACHE);
+            view.setSize(1200, 896);
+            GameController controller = new GameController(view);
+            List<String> messages = new ArrayList<>();
+            controller.setMessageSender(messages::add);
+            controller.updateState(OWN, OTHERS, ZONES, "Playa Conchal");
+            click(view, 300, 300, MouseEvent.BUTTON1, false);
+            click(view, 320, 300, MouseEvent.BUTTON1, true);
+            click(view, 300, 300, MouseEvent.BUTTON1, true);
+            click(view, 500, 500, MouseEvent.BUTTON3, false);
+            assertJson("""
+                    {"type":"MOVE_ANIMALS","payload":{"animalIds":[2],"targetX":500,"targetY":500}}
+                    """, messages.getLast());
+            click(view, 300, 300, MouseEvent.BUTTON1, false);
+            click(view, 500, 500, MouseEvent.BUTTON3, false);
+            assertJson("""
+                    {"type":"MOVE_ANIMALS","payload":{"animalIds":[1],"targetX":500,"targetY":500}}
+                    """, messages.getLast());
+            click(view, 550, 550, MouseEvent.BUTTON1, true);
+            assertEquals("Animales seleccionados: 1", status(view).getText());
+            click(view, 550, 550, MouseEvent.BUTTON1, false);
+            int count = messages.size();
+            click(view, 500, 500, MouseEvent.BUTTON3, false);
+            assertEquals(count, messages.size());
+            assertTrue(status(view).getText().startsWith("Selecciona primero"));
+            view.removeNotify();
+        });
+    }
+
+    @Test
+    void rejectsHiddenAnimalsDeadAnimalsOwnTargetsAndClicksOutsideVisibleZone() throws Exception {
+        SwingUtilities.invokeAndWait(() -> {
+            MapPanel view = new MapPanel(CACHE);
+            view.setSize(600, 900);
+            GameController controller = new GameController(view);
+            List<String> messages = new ArrayList<>();
+            controller.setMessageSender(messages::add);
+            controller.updateState(OWN, OTHERS, ZONES, "Playa Conchal");
+            click(view, 400, 450, MouseEvent.BUTTON1, false);
+            assertEquals("Animales seleccionados: 0", status(view).getText());
+            click(view, 450, 400, MouseEvent.BUTTON1, false);
+            assertEquals("Animales seleccionados: 0", status(view).getText());
+            click(view, 300, 300, MouseEvent.BUTTON1, false);
+            click(view, 320, 300, MouseEvent.BUTTON3, false);
+            click(view, 900, 300, MouseEvent.BUTTON3, false);
+            view.dispatchEvent(new MouseEvent(view, MouseEvent.MOUSE_CLICKED, 0, 0,
+                    100, 10, 1, false, MouseEvent.BUTTON3));
+            assertTrue(messages.isEmpty());
+            assertTrue(view.toMapPoint(new java.awt.Point(100, 10)).isEmpty(),
+                    "La franja fuera del mapa no tiene coordenadas del juego");
+            view.removeNotify();
+        });
+    }
+
+    @Test
+    void stateUpdatesPruneSelectionAndMoveItsHighlightWithoutSendingCommands() throws Exception {
+        SwingUtilities.invokeAndWait(() -> {
+            MapPanel view = new MapPanel(CACHE);
+            view.setSize(1200, 896);
+            GameController controller = new GameController(view);
+            List<String> messages = new ArrayList<>();
+            controller.setMessageSender(messages::add);
+            controller.updateState(OWN, OTHERS, ZONES, "Playa Conchal");
+            click(view, 300, 300, MouseEvent.BUTTON1, false);
+            List<ClickableAnimal> moved = List.of(new ClickableAnimal(1, 400, 400, true));
+            controller.updateState(moved, OTHERS, ZONES, "Playa Conchal");
+            BufferedImage image = new BufferedImage(1200, 896, BufferedImage.TYPE_INT_ARGB);
+            Graphics2D graphics = image.createGraphics();
+            view.paint(graphics);
+            graphics.dispose();
+            assertEquals(UIConstants.ANIMAL_SELECTION_COLOR.getRGB(),
+                    image.getRGB((int) ((400 + UIConstants.ANIMAL_CLICK_RADIUS) / 2), 200));
+            controller.updateState(List.of(new ClickableAnimal(1, 400, 400, false)),
+                    OTHERS, ZONES, "Playa Conchal");
+            assertEquals("Animales seleccionados: 0", status(view).getText());
+            controller.updateState(moved, OTHERS, ZONES, "Playa Conchal");
+            click(view, 400, 400, MouseEvent.BUTTON1, false);
+            controller.updateState(moved, OTHERS, ZONES, "Monteverde");
+            assertEquals("Animales seleccionados: 0", status(view).getText());
+            assertEquals("Monteverde", zones(view).getSelectedItem());
+            assertTrue(messages.isEmpty(), "Actualizar la vista no debe reenviar VIEW_ZONE");
+            view.removeNotify();
+        });
+    }
+
+    @Test
+    void missingStateAndMissingSenderAreExplicitAndDoNotSend() throws Exception {
+        SwingUtilities.invokeAndWait(() -> {
+            MapPanel view = new MapPanel(CACHE);
+            view.setSize(1200, 896);
+            GameController controller = new GameController(view);
+            click(view, 300, 300, MouseEvent.BUTTON1, false);
+            assertEquals("Esperando los datos de animales del servidor", status(view).getText());
+            controller.updateState(OWN, OTHERS, ZONES, "Playa Conchal");
+            click(view, 300, 300, MouseEvent.BUTTON1, false);
+            click(view, 500, 500, MouseEvent.BUTTON3, false);
+            assertEquals("No hay envio conectado: la orden no fue enviada", status(view).getText());
+            controller.updateState(List.of(new ClickableAnimal(1, Double.NaN, 300, true)),
+                    OTHERS, ZONES, "Playa Conchal");
+            assertEquals("Estado invalido para los clics: revisar animales y zonas", status(view).getText());
+            controller.updateState(OWN, OTHERS, List.of("Zona inexistente"), "Zona inexistente");
+            assertEquals("Estado invalido para los clics: revisar animales y zonas", status(view).getText());
+            view.removeNotify();
+        });
+    }
+
+    @Test
+    void nearestTargetWinsEvenWhenOwnAnimalIsAlsoNearCursor() throws Exception {
+        SwingUtilities.invokeAndWait(() -> {
+            MapPanel view = new MapPanel(CACHE);
+            view.setSize(1200, 896);
+            GameController controller = new GameController(view);
+            List<String> messages = new ArrayList<>();
+            controller.setMessageSender(messages::add);
+            controller.updateState(List.of(new ClickableAnimal(1, 430, 400, true)),
+                    OTHERS, ZONES, "Playa Conchal");
+            click(view, 430, 400, MouseEvent.BUTTON1, false);
+            click(view, 450, 400, MouseEvent.BUTTON3, false);
+            assertJson("""
+                    {"type":"ATTACK","payload":{"animalIds":[1],"targetId":21}}
+                    """, messages.getLast());
+            view.removeNotify();
+        });
+    }
+
+    @Test
+    void animalsUseTwentyFourMapUnitsAsClickRadius() throws Exception {
+        SwingUtilities.invokeAndWait(() -> {
+            MapPanel view = new MapPanel(CACHE);
+            view.setSize(1200, 896);
+            GameController controller = new GameController(view);
+            controller.updateState(List.of(new ClickableAnimal(1, 300, 300, true)),
+                    List.of(), ZONES, "Playa Conchal");
+            assertEquals(48, UIConstants.TEST_ANIMAL_SIZE);
+            assertEquals(24.0, UIConstants.ANIMAL_CLICK_RADIUS);
+            click(view, 324, 300, MouseEvent.BUTTON1, false);
+            assertEquals("Animales seleccionados: 1", status(view).getText());
+            click(view, 326, 300, MouseEvent.BUTTON1, false);
+            assertEquals("Animales seleccionados: 0", status(view).getText());
+            view.removeNotify();
+        });
+    }
+
+    private static void click(MapPanel view, double x, double y, int button, boolean control) {
+        double scale = Math.min(view.getWidth() / 2400.0, view.getHeight() / 1792.0);
+        int screenX = (int) Math.round((view.getWidth() - 2400 * scale) / 2 + x * scale);
+        int screenY = (int) Math.round((view.getHeight() - 1792 * scale) / 2 + y * scale);
+        view.dispatchEvent(new MouseEvent(view, MouseEvent.MOUSE_CLICKED, 0,
+                control ? InputEvent.CTRL_DOWN_MASK : 0, screenX, screenY, 1, false, button));
+    }
+
+    private static JComboBox<?> zones(MapPanel view) {
+        return (JComboBox<?>) view.getComponent(4);
+    }
+
+    private static JLabel status(MapPanel view) {
+        return (JLabel) view.getComponent(2);
+    }
+
+    private static void assertJson(String expected, String actual) {
+        assertEquals(JsonParser.parseString(expected), JsonParser.parseString(actual));
+    }
+}

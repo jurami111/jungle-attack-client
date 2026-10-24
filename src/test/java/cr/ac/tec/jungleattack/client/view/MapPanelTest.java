@@ -1,23 +1,34 @@
+
 package cr.ac.tec.jungleattack.client.view;
 
-import cr.ac.tec.jungleattack.client.view.utils.SpriteCache;
-import java.awt.Graphics2D;
 import java.awt.BasicStroke;
-import java.awt.geom.Line2D;
+import java.awt.Color;
+import java.awt.Graphics2D;
 import java.awt.geom.AffineTransform;
-import cr.ac.tec.jungleattack.client.config.UIConstants;
+import java.awt.geom.Line2D;
 import java.awt.image.BufferedImage;
-import javax.swing.SwingUtilities;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
+
 import javax.swing.JButton;
 import javax.swing.JComboBox;
 import javax.swing.JLabel;
-import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
-import com.google.gson.JsonParser;
+import javax.swing.SwingUtilities;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
-import static org.junit.jupiter.api.Assertions.*;
+
+import com.google.gson.JsonParser;
+
+import cr.ac.tec.jungleattack.client.config.UIConstants;
+import cr.ac.tec.jungleattack.client.view.utils.EnergyBar;
+import cr.ac.tec.jungleattack.client.view.utils.SpriteCache;
 
 class MapPanelTest {
     private static final SpriteCache CACHE = new SpriteCache();
@@ -52,6 +63,10 @@ class MapPanelTest {
                         322 - animal.getHeight() * animalScale / 2);
                 placement.scale(animalScale, animalScale);
                 original.drawImage(animal, placement, null);
+                EnergyBar.paint(original, 900,
+                        322 - UIConstants.TEST_ANIMAL_SIZE / 2.0
+                                - UIConstants.ENERGY_BAR_GAP - UIConstants.ENERGY_BAR_HEIGHT,
+                        UIConstants.MAX_PLAYER_ENERGY, UIConstants.MAX_PLAYER_ENERGY);
                 original.dispose();
                 BufferedImage painted = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
                 Graphics2D graphics = painted.createGraphics();
@@ -266,6 +281,26 @@ class MapPanelTest {
             int edge = painted.getRGB(edgeX, edgeY);
             assertTrue(((edge >> 16) & 255) < 40 && ((edge >> 8) & 255) < 40 && (edge & 255) < 40,
                     "El borde interior de la zona debe verse oscuro");
+            panel.removeNotify();
+        });
+    }
+
+    @Test
+    void energyBarIsDrawnAboveVisibleAnimal() throws Exception {
+        SwingUtilities.invokeAndWait(() -> {
+            MapPanel panel = new MapPanel(CACHE);
+            panel.setSize(1200, 896);
+            JComboBox<?> routes = (JComboBox<?>) panel.getComponent(1);
+            routes.setSelectedIndex(2);
+            BufferedImage painted = new BufferedImage(1200, 896, BufferedImage.TYPE_INT_ARGB);
+            Graphics2D graphics = painted.createGraphics();
+            panel.paint(graphics);
+            graphics.dispose();
+            int barCenterX = 450;
+            int barInteriorY = (int) ((322 - UIConstants.TEST_ANIMAL_SIZE / 2.0
+                    - UIConstants.ENERGY_BAR_GAP - UIConstants.ENERGY_BAR_HEIGHT + 2) * 0.5);
+            assertEquals(UIConstants.ENERGY_BAR_FILL_COLOR.getRGB(),
+                    painted.getRGB(barCenterX, barInteriorY));
             panel.removeNotify();
         });
     }
