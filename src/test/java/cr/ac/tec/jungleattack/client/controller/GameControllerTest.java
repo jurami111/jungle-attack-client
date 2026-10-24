@@ -36,9 +36,9 @@ class GameControllerTest {
     private static final List<String> ZONES = List.of("Playa Conchal", "Monteverde");
 
     @ParameterizedTest
-    @CsvSource({"1200,896,500,500", "1000,700,501.12,499.2", "600,900,500,500"})
+    @CsvSource({"1200,896,500,500", "1000,700,501,499", "600,900,500,500"})
     void selectsMultipleAnimalsAndBuildsExactCommandsAtDifferentScales(
-            int width, int height, double expectedX, double expectedY) throws Exception {
+            int width, int height, int expectedX, int expectedY) throws Exception {
         SwingUtilities.invokeAndWait(() -> {
             MapPanel view = new MapPanel(CACHE);
             view.setSize(width, height);
@@ -56,6 +56,12 @@ class GameControllerTest {
             expectedMove.getAsJsonObject("payload").addProperty("targetX", expectedX);
             expectedMove.getAsJsonObject("payload").addProperty("targetY", expectedY);
             assertEquals(expectedMove, JsonParser.parseString(messages.getLast()));
+            var payload = JsonParser.parseString(messages.getLast()).getAsJsonObject()
+                    .getAsJsonObject("payload");
+            assertEquals(expectedX, payload.get("targetX").getAsBigDecimal().intValueExact());
+            assertEquals(expectedY, payload.get("targetY").getAsBigDecimal().intValueExact());
+            assertFalse(payload.get("targetX").toString().contains("."));
+            assertFalse(payload.get("targetY").toString().contains("."));
             click(view, 450, 400, MouseEvent.BUTTON3, false);
             assertJson("""
                     {"type":"ATTACK","payload":{"animalIds":[1,2],"targetId":21}}
@@ -214,6 +220,59 @@ class GameControllerTest {
             assertEquals("Animales seleccionados: 1", status(view).getText());
             click(view, 326, 300, MouseEvent.BUTTON1, false);
             assertEquals("Animales seleccionados: 0", status(view).getText());
+            view.removeNotify();
+        });
+    }
+
+    @Test
+    void emptyZonesClearSelectionHideMapAndAllowLaterStateRecovery() throws Exception {
+        SwingUtilities.invokeAndWait(() -> {
+            MapPanel view = new MapPanel(CACHE);
+            view.setSize(1200, 896);
+            GameController controller = new GameController(view);
+            List<String> messages = new ArrayList<>();
+            controller.setMessageSender(messages::add);
+            controller.updateState(OWN, OTHERS, ZONES, "Playa Conchal");
+            click(view, 300, 300, MouseEvent.BUTTON1, false);
+            controller.updateState(OWN, List.of(), List.of(), null);
+            assertEquals(0, zones(view).getItemCount());
+            assertNull(zones(view).getSelectedItem());
+            assertFalse(view.isVisiblePoint(300, 300));
+            assertEquals("No hay una zona visible", status(view).getText());
+            BufferedImage image = new BufferedImage(1200, 896, BufferedImage.TYPE_INT_ARGB);
+            Graphics2D graphics = image.createGraphics();
+            view.paint(graphics);
+            graphics.dispose();
+            for (int y = 100; y < image.getHeight(); y++) {
+                for (int x = 0; x < image.getWidth(); x++) {
+                    assertEquals(UIConstants.FOG_COLOR.getRGB(), image.getRGB(x, y));
+                }
+            }
+            click(view, 500, 500, MouseEvent.BUTTON3, false);
+            assertEquals("No hay una zona visible", status(view).getText());
+            controller.updateState(OWN, OTHERS, ZONES, "Playa Conchal");
+            assertEquals("Animales seleccionados: 0", status(view).getText());
+            click(view, 500, 500, MouseEvent.BUTTON3, false);
+            assertTrue(messages.isEmpty(), "La seleccion anterior no debe recuperarse");
+            click(view, 300, 300, MouseEvent.BUTTON1, false);
+            click(view, 500, 500, MouseEvent.BUTTON3, false);
+            assertEquals(1, messages.size());
+            view.removeNotify();
+        });
+    }
+
+    @Test
+    void rejectsInconsistentEmptyAndSelectedZones() throws Exception {
+        SwingUtilities.invokeAndWait(() -> {
+            MapPanel view = new MapPanel(CACHE);
+            GameController controller = new GameController(view);
+            controller.updateState(OWN, OTHERS, ZONES, "Playa Conchal");
+            controller.updateState(OWN, List.of(), List.of(), "Playa Conchal");
+            assertEquals("Estado invalido para los clics: revisar animales y zonas", status(view).getText());
+            assertEquals("Playa Conchal", zones(view).getSelectedItem());
+            controller.updateState(OWN, OTHERS, ZONES, null);
+            assertEquals("Estado invalido para los clics: revisar animales y zonas", status(view).getText());
+            assertEquals("Playa Conchal", zones(view).getSelectedItem());
             view.removeNotify();
         });
     }

@@ -29,6 +29,8 @@ public final class GameController extends MouseAdapter {
     private List<ClickableAnimal> visibleAnimals = List.of();
     private List<String> visibleZones = List.of();
     private String selectedZone;
+    private boolean stateReceived;
+    private boolean interactionEnabled = true;
     private Consumer<String> messageSender;//funcion que se conecta con el servidor para enviar mensajes
 
     public GameController(MapPanel view) {
@@ -41,6 +43,14 @@ public final class GameController extends MouseAdapter {
         this.messageSender = messageSender;
     }
 
+    public void setInteractionEnabled(boolean enabled) {
+        interactionEnabled = enabled;
+        if (!enabled) {
+            selectedIds.clear();
+            view.showSelection(List.of());
+        }
+    }
+
     // La integracion llama este metodo en el hilo de Swing con cada estado recibido.
     public void updateState(List<ClickableAnimal> ownAnimals, List<ClickableAnimal> visibleAnimals,
             List<String> visibleZones, String selectedZone) {
@@ -48,10 +58,11 @@ public final class GameController extends MouseAdapter {
             report("El estado de los clics debe actualizarse en el hilo de Swing");
             return;
         }
-        if (!validAnimals(ownAnimals, visibleAnimals) || visibleZones == null || visibleZones.isEmpty()
+        if (!validAnimals(ownAnimals, visibleAnimals) || visibleZones == null
                 || visibleZones.stream().anyMatch(zone -> zone == null || !view.hasZone(zone))
                 || new HashSet<>(visibleZones).size() != visibleZones.size()
-                || !visibleZones.contains(selectedZone)) {
+                || (visibleZones.isEmpty() ? selectedZone != null
+                        : selectedZone == null || !visibleZones.contains(selectedZone))) {
             report("Estado invalido para los clics: revisar animales y zonas");
             return;
         }
@@ -60,6 +71,7 @@ public final class GameController extends MouseAdapter {
         this.visibleAnimals = List.copyOf(visibleAnimals);
         this.visibleZones = List.copyOf(visibleZones);
         this.selectedZone = selectedZone;
+        stateReceived = true;
         view.showGameZones(this.visibleZones, selectedZone);
         // Elimina los IDs de animales seleccionados que ya no son visibles o están muertos
         selectedIds.removeIf(id -> this.ownAnimals.stream().noneMatch(animal ->
@@ -70,11 +82,16 @@ public final class GameController extends MouseAdapter {
     //INTERPRESATR UN CLIC DEL RATON EN EL MAPA
     @Override
     public void mouseClicked(MouseEvent event) {
+        if (!interactionEnabled) {
+            view.showInteractionStatus("La partida no esta activa");
+            return;
+        }
         if (!SwingUtilities.isLeftMouseButton(event) && !SwingUtilities.isRightMouseButton(event)) {
             return;
         }
         if (selectedZone == null) {
-            report("Esperando los datos de animales del servidor");
+            view.showInteractionStatus(stateReceived
+                    ? "No hay una zona visible" : "Esperando los datos de animales del servidor");
             return;
         }
         Optional<Point2D.Double> position = view.toMapPoint(event.getPoint());
@@ -107,7 +124,8 @@ public final class GameController extends MouseAdapter {
             } else if (target.isPresent()) {
                 send("ATTACK", new AttackPayload(List.copyOf(selectedIds), target.get().id()));
             } else {
-                send("MOVE_ANIMALS", new MovePayload(List.copyOf(selectedIds), point.x, point.y));
+                send("MOVE_ANIMALS", new MovePayload(List.copyOf(selectedIds),
+                        (int) Math.floor(point.x), (int) Math.floor(point.y)));
             }
         }
     }
@@ -131,11 +149,15 @@ public final class GameController extends MouseAdapter {
     // actualiza la selección de animales en la vista y muestra el estado de la interacción
     private void refreshSelection() {
         view.showSelection(ownAnimals.stream().filter(animal -> selectedIds.contains(animal.id())).toList());
-        view.showInteractionStatus("Animales seleccionados: " + selectedIds.size());
+        view.showInteractionStatus(stateReceived && selectedZone == null
+                ? "No hay una zona visible" : "Animales seleccionados: " + selectedIds.size());
     }
 
     //solicitmos el cambio de la zona seleccionada al servidor
     private void requestZone(String zone) {
+        if (!interactionEnabled) {
+            return;
+        }
         if (selectedZone == null) {
             return; // El selector conserva su funcionamiento local en el modo de prueba.
         }
@@ -179,7 +201,7 @@ public final class GameController extends MouseAdapter {
     private record Command<T>(String type, T payload) {
     }
 
-    private record MovePayload(List<Integer> animalIds, double targetX, double targetY) {
+    private record MovePayload(List<Integer> animalIds, int targetX, int targetY) {
     }
 
     private record AttackPayload(List<Integer> animalIds, int targetId) {

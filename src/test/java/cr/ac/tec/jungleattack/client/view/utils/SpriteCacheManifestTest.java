@@ -42,6 +42,49 @@ class SpriteCacheManifestTest {
         assertTrue(cache.getImage("Mapa.svg").isPresent());
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "[]",
+            "{\"canvasWidth\":512,\"canvasHeight\":512,\"animals\":{}}",
+            "{\"canvasWidth\":\"incorrecto\",\"canvasHeight\":512,\"animals\":[]}",
+            "{\"canvasWidth\":512,\"canvasHeight\":512,\"animals\":[],}",
+            "{/* comentario */\"canvasWidth\":512,\"canvasHeight\":512,\"animals\":[]}"
+    })
+    void rejectsWrongJsonTypesAndNonstandardSyntax(String json) {
+        var cache = fromJson(json);
+        String error = cache.getLoadErrors().get("normalized/sequences.json");
+        assertNotNull(error);
+        assertFalse(error.isBlank());
+        assertTrue(cache.getImage("Mapa.svg").isPresent());
+        assertTrue(cache.getAnimation("mono").isEmpty());
+    }
+
+    @Test
+    void parsesUtf8ManifestWithReorderedFieldsAndBuildsAnimation() {
+        String json = """
+                {
+                  "animals": [{
+                    "frames": [{"file": "mariposa/mariposa-1.svg"}],
+                    "sequence": [1, 1],
+                    "frameDurationMs": 125,
+                    "idleFrame": 1,
+                    "id": "mariposa-\u00e1"
+                  }],
+                  "canvasHeight": 512,
+                  "canvasWidth": 512
+                }
+                """;
+        var cache = fromJson(json);
+        var animation = cache.getAnimation("mariposa-\u00e1").orElseThrow();
+        assertTrue(cache.getLoadErrors().isEmpty());
+        assertEquals(125, animation.frameDurationMs());
+        assertEquals(2, animation.frames().size());
+        assertSame(cache.getImage("normalized/mariposa/mariposa-1.svg").orElseThrow(),
+                animation.idleImage());
+        assertSame(animation.idleImage(), animation.frames().get(0));
+        assertSame(animation.frames().get(0), animation.frames().get(1));
+    }
+
     @Test
     void rejectsInvalidDefinitionsButStillLoadsValidAnimal() {
         String validFile = "mariposa/mariposa-1.svg";

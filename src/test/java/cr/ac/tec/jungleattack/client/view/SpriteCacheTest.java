@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SpriteCacheTest {
@@ -53,6 +54,20 @@ class SpriteCacheTest {
 
     @Test
     void reportsNoErrorsWhenAllAssetsLoad() {
+        assertTrue(cache.getLoadErrors().isEmpty());
+    }
+
+    @Test
+    void protectsSharedCollectionsFromModification() {
+        var animation = cache.getAnimation("mono").orElseThrow();
+        assertThrows(UnsupportedOperationException.class,
+                () -> animation.frames().clear());
+        assertThrows(UnsupportedOperationException.class,
+                () -> cache.getLoadErrors().put("Mapa.svg", "error externo"));
+        assertThrows(UnsupportedOperationException.class,
+                () -> SpriteCache.ASSET_NAMES.add("extra.svg"));
+        assertEquals(8, SpriteCache.ASSET_NAMES.size());
+        assertFalse(animation.frames().isEmpty());
         assertTrue(cache.getLoadErrors().isEmpty());
     }
 

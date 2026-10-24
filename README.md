@@ -1,6 +1,111 @@
 # jungle-attack-client
 
+## Cliente preparado para integrar TCP
+
+`Main` abre el flujo real: inicio, crear/unirse, espera, seleccion de animal,
+mapa y resultados. Sin transporte conectado muestra "Esperando conexion con el
+servidor" y no permite enviar ordenes. No abre sockets ni simula una partida.
+
+`GameState` conserva el estado de la interfaz y notifica a `ModelObserver`.
+`ClientPanel` interpreta cada linea mediante `ServerMessageParser` y lleva las
+actualizaciones al hilo de Swing. Los snapshots sustituyen los datos anteriores.
+El cliente no calcula movimiento, dano, consumo de cafe ni victorias.
+
+Las especies son `MONO`, `MARIPOSA`, `RANA`, `PEREZOSO`, `SERPIENTE`, `TORTUGA`
+y `YIGUIRRO`; sus nombres en minusculas corresponden a las animaciones del cache.
+Una especie, color o centro de zona incompatible se informa en pantalla y no
+sustituye el estado anterior.
+
+El mapa de partida dibuja los animales vivos de la zona seleccionada, sus
+energias reales, indicadores propio/rival/bot, las tazas y las banderas recibidas.
+Los cuadros de animacion cambian al detectar desplazamiento entre snapshots;
+las posiciones y los clics usan las coordenadas recibidas, sin predecir rutas.
+El timer grafico se detiene al terminar, desconectar o retirar el panel.
+Las tazas y banderas se dibujan con figuras de Swing; no requieren nuevos SVG.
+
+La zona visible usa el centro mas cercano entre las doce zonas de `MapZones`,
+con el mismo orden de desempate que el servidor. La niebla recorta esa region,
+no los rectangulos de la demostracion. Sin zona seleccionada, todo queda negro.
+El cliente conserva localmente los doce centros porque el protocolo solo envia
+las zonas ocupadas; si cambia el mapa del servidor, hay que actualizar este contrato.
+
+El boton de prueba, los selectores de ruta/direccion, la ruta cian y el mono de
+demostracion NO aparecen en una partida. `new MapPanel(cache)` conserva la
+demostracion para las pruebas existentes; la aplicacion usa
+`new MapPanel(cache, false)`. Los recursos y comentarios anteriores se conservan.
+
+### Contrato para el integrante de red
+
+Obtener `ClientPanel client = gameWindow.getClientPanel()` en lugar de conectar
+solo el controlador de clics. Despues de abrir TCP, llamar:
+
+```java
+client.setMessageSender(conexion::encolarLineaJson);
+```
+
+`conexion::encolarLineaJson` representa el metodo real que implementara el
+integrante de red; no existe en este repositorio. Debe ser no bloqueante, conservar
+el orden, escribir UTF-8 y agregar UN salto de linea y flush. Recibe JSON sin
+delimitador para CREATE_MATCH, JOIN_MATCH, SELECT_ANIMAL, MOVE_ANIMALS,
+ATTACK y VIEW_ZONE. Encolar una orden no equivale a su aceptacion por el servidor.
+
+Para cada linea completa leida del socket:
+
+```java
+client.receiveServerLine(linea);
+```
+
+No convertir animales ni llamar por separado a `controller.updateState`:
+`ClientPanel` ya actualiza modelo, dibujo, seleccion, zonas y pantallas.
+Los nueve tipos de mensajes entrantes tienen manejo en este flujo.
+ERROR se muestra sin abandonar la partida; GAME_OVER muestra ganador,
+duracion y tabla de packs; MATCH_CANCELLED muestra la razon, sin ganador.
+Tras terminar o cancelar, se puede volver al inicio usando la misma conexion.
+
+Al detectar EOF, cierre o fallo que invalide TCP:
+
+```java
+client.connectionClosed(motivo);
+```
+
+Para un error de envio recuperable sin cerrar la conexion:
+
+```java
+client.reportConnectionError(motivo);
+```
+
+Estos metodos admiten llamadas desde el hilo de red y programan los cambios
+de interfaz en Swing. La capa TCP debe ordenar sus callbacks y dejar de
+entregar mensajes de una conexion cerrada antes de registrar otra. No se debe
+bloquear Swing con lecturas, escrituras o reconexiones. Al cerrar la ventana,
+el integrante de red debe cerrar su socket y sus hilos.
+`NetworkClient` y `MessageSender` se mantienen sin implementar para ese trabajo.
+
+Pruebas del flujo, representacion y compatibilidad espacial, sin sockets:
+
+```shell
+mvn "-Dtest=ClientPanelTest,GameStateTest,MapZonesTest" test
+```
+
+La integracion TCP real con dos clientes sigue siendo una verificacion pendiente;
+estas pruebas no certifican esa conexion.
+
 ## Cache de imagenes SVG
+
+Las pruebas JUnit de `SpriteCacheTest` verifican la carga de los SVG,
+transparencia, dimensiones, reutilizacion y proteccion de las colecciones.
+`SpriteCacheManifestTest` comprueba el parseo real del manifiesto por
+`SpriteCache`: JSON valido en UTF-8, orden de campos, tipos incorrectos,
+sintaxis no estandar y definiciones incompletas o invalidas.
+No son pruebas de recepcion de mensajes del servidor: ese lector de red
+todavia no esta implementado en este repositorio. El parser independiente
+de mensajes del servidor tiene sus propias pruebas descritas al final.
+
+Para ejecutar estas pruebas:
+
+```shell
+mvn -Dtest=SpriteCacheTest,SpriteCacheManifestTest test
+```
 
 El cliente utiliza Java 25, Maven y Apache Batik 1.19.
 Los ocho SVG se encuentran en `src/main/resources/assets`.
@@ -65,7 +170,7 @@ recursos originales.
 
 La prueba visual descrita abajo reproduce la animacion del mono con un Timer.
 
-## Conexiones visuales de prueba
+## Conexiones visuales de prueba (solo demostracion)
 
 `MapPanel` resalta en cian el recorrido desde el tunel de Cerro Zurqui hasta
 el acceso sur de Volcan Poas, rodeando el crater por la izquierda. Sus puntos estan
@@ -201,7 +306,7 @@ Tambien puede probarse en vuelta. Las 14 conexiones originales del JSON no
 se alteran ni se duplican. No hay BFS, seleccion automatica de rutas ni
 decisiones del servidor; sigue pendiente el calculo de rutas de juego.
 
-## Niebla de guerra
+## Niebla de guerra de la demostracion
 
 El mapa esta dividido en 12 zonas rectangulares de 600 de ancho, en 4 columnas
 y 3 filas (las de la fila inferior miden 592 de alto). Sus limites estan en
@@ -222,7 +327,7 @@ opcion conserva las pruebas de rutas sobre el mapa completo.
 
 ## Clics: seleccion y comandos para la integracion
 
-`GameWindow` crea un `GameController` y lo conecta al `MapPanel`.
+`GameWindow` crea un `ClientPanel`, que conecta `GameController` al `MapPanel`.
 El clic izquierdo selecciona un animal propio vivo; Ctrl + clic izquierdo
 agrega o quita un miembro. Un clic izquierdo en espacio vacio limpia la
 seleccion, salvo que se mantenga Ctrl. La seleccion se resalta en amarillo.
@@ -235,23 +340,29 @@ Si varios animales estan cerca, se toma el mas cercano dentro de
 El controlador serializa con Gson los sobres `type` / `payload`:
 
 ```json
-{"type":"MOVE_ANIMALS","payload":{"animalIds":[1,2],"targetX":910.0,"targetY":316.0}}
+{"type":"MOVE_ANIMALS","payload":{"animalIds":[1,2],"targetX":910,"targetY":316}}
 {"type":"ATTACK","payload":{"animalIds":[1,2],"targetId":21}}
 {"type":"VIEW_ZONE","payload":{"zone":"Monteverde"}}
 ```
 
 Los destinos usan coordenadas del mapa original, no de la ventana.
-Se conservan decimales para no perder precision al deshacer la escala.
-El integrador debe confirmar que el receptor admite numeros JSON decimales.
+La conversion desde la ventana conserva decimales para detectar objetivos.
+Al generar MOVE_ANIMALS se aplica Math.floor a cada coordenada y se envia
+como int, conforme al contrato del servidor. Esto evita que un clic junto
+al limite se redondee hacia fuera del mapa o de la zona.
 El cambio de zona solo ofrece los nombres recibidos en `visibleZones`;
 solicitar una zona no la revela hasta recibir `selectedZone` del servidor.
+Si se recibe `visibleZones: []` y `selectedZone: null`, se limpia la
+seleccion, se vacia el selector y se cubre todo el mapa de negro.
+No se generan ordenes por clic mientras no exista una zona visible.
+Este estado se distingue del modo de prueba local sin datos del servidor.
 Los cambios de estado no reenvian comandos y eliminan de la seleccion
 los animales muertos, ausentes o que ya no estan en la zona mostrada.
 
-### Punto de conexion para el integrante de red
+### API de clics de bajo nivel
 
 No se implementaron sockets ni se modificaron `NetworkClient` o `MessageSender`.
-El integrador obtiene `gameWindow.getController()` y configura:
+Para pruebas aisladas se puede obtener `gameWindow.getController()` y configurar:
 
 ```java
 controller.setMessageSender(conexion::enviarLineaJson);
@@ -264,8 +375,8 @@ serializado, sin salto de linea. La capa de red agrega el delimitador
 y utiliza UTF-8. Entregar una orden a esta funcion no confirma que el
 servidor la haya aceptado.
 
-Con cada GAME_STARTED o STATE_UPDATE, convertir los animales recibidos
-a `ClickableAnimal(id, x, y, alive)` y llamar en el hilo de Swing:
+Internamente, `ClientPanel` convierte los animales recibidos
+a `ClickableAnimal(id, x, y, alive)` y llama en el hilo de Swing:
 
 ```java
 SwingUtilities.invokeLater(() -> controller.updateState(
@@ -279,9 +390,9 @@ coordenadas finitas y nombres de zonas conocidos.
 `ClickableAnimal` solo contiene datos para identificar objetivos de clic;
 no reemplaza al DTO completo ni al modelo del juego.
 
-El dibujo de los sprites de la partida debe usar las mismas posiciones
-que se entreguen al controlador. Esta etapa no implementa ese renderizado:
-el mono y las rutas existentes siguen siendo una demostracion local,
+El dibujo de los sprites de la partida usa las mismas posiciones
+que se entregan al controlador. El mono y las rutas de demostracion
+se conservan solo en el constructor de prueba del panel,
 sin IDs inventados, y no representan a los animales del servidor.
 Hasta recibir datos reales, los clics indican que faltan datos.
 Si falta la funcion de envio, se informa que la orden no fue enviada.
@@ -291,4 +402,64 @@ Pruebas de esta parte:
 
 ```shell
 mvn -Dtest=GameControllerTest,MapPanelTest test
+```
+
+## Parseo de mensajes del servidor
+
+`ServerMessageParser` recibe una linea de texto ya decodificada en UTF-8
+por la conexion. No abre sockets, no lee archivos, no actualiza Swing
+y no depende del repositorio del servidor.
+Acepta MATCH_CREATED, MATCH_JOINED, PLAYER_JOINED, ANIMAL_SELECTION,
+GAME_STARTED, STATE_UPDATE, GAME_OVER, MATCH_CANCELLED y ERROR.
+Valida el sobre type/payload y los campos anidados antes de convertirlos
+con Gson estricto a los records de `model.dto.ServerMessage`.
+No convierte cadenas a numeros o booleanos ni rellena campos obligatorios
+ausentes con los valores predeterminados de Java.
+Los enteros deben caber en 32 bits; se admiten campos adicionales desconocidos
+para conservar compatibilidad con extensiones del contrato.
+
+El resultado es `ParseResult`: contiene un mensaje o un error descriptivo,
+nunca un mensaje de exito ficticio para una entrada invalida.
+La integracion debe revisar y mostrar o registrar el error:
+
+```java
+ServerMessageParser parser = new ServerMessageParser();
+var result = parser.parse(lineaRecibida);
+if (result.error().isPresent()) {
+    System.err.println(result.error().get());
+} else {
+    var message = result.message().orElseThrow();
+    // Despachar segun message.type() y actualizar el modelo en la integracion.
+}
+```
+
+El fragmento es ilustrativo: `lineaRecibida` pertenece al lector TCP real.
+La conexion debe gestionar EOF y errores de transporte por separado.
+Para GAME_STARTED/STATE_UPDATE, `payload` es un `ServerMessage.Snapshot`;
+incluye energia, posiciones, animales propios/visibles, zonas, tazas y banderas.
+La propiedad bot es Boolean: null si no se envio para un animal propio;
+para un animal visible se exige un booleano. No se infiere la propiedad
+de un animal a partir de ese campo.
+selectedZone solo puede ser null cuando visibleZones esta vacio; en ese
+caso tambien deben estar vacias las listas visibles de animales, tazas
+y banderas. Los animales propios pueden seguir presentes, incluso muertos.
+Se rechazan IDs de animales y nombres de zonas repetidos.
+
+Cada parseo crea un mensaje independiente con listas no modificables;
+no combina snapshots ni mantiene estado anterior. La integracion debe
+reemplazar el estado visible, no acumularlo. Las reglas de combate,
+la representacion grafica y la conexion TCP quedan fuera del parser.
+Los records alimentan el modelo observable `GameState` mediante `ClientPanel`;
+no sustituyen ese modelo.
+
+`JsonParseTest` usa `src/test/resources/protocol/server-messages.jsonl`,
+ejemplos representativos del contrato del servidor con dos animales propios
+para mantener pequenas las fixtures (no son una partida completa).
+Comprueba los nueve tipos, valores anidados, UTF-8, campos en distinto orden,
+campos adicionales, listas independientes, estado sin zona visible,
+campos ausentes, tipos incorrectos, rangos y JSON mal formado.
+No requiere clonar ni ejecutar el servidor.
+
+```shell
+mvn -Dtest=JsonParseTest test
 ```
