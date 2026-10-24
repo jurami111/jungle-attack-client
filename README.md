@@ -3,8 +3,9 @@
 ## Cliente preparado para integrar TCP
 
 `Main` abre el flujo real: inicio, crear/unirse, espera, seleccion de animal,
-mapa y resultados. Sin transporte conectado muestra "Esperando conexion con el
-servidor" y no permite enviar ordenes. No abre sockets ni simula una partida.
+mapa y resultados. Al iniciar intenta conectarse por TCP a `localhost:12345`.
+Si el servidor no esta disponible, la interfaz informa la desconexion.
+El cliente no simula una partida.
 
 `GameState` conserva el estado de la interfaz y notifica a `ModelObserver`.
 `ClientPanel` interpreta cada linea mediante `ServerMessageParser` y lleva las
@@ -34,52 +35,12 @@ demostracion NO aparecen en una partida. `new MapPanel(cache)` conserva la
 demostracion para las pruebas existentes; la aplicacion usa
 `new MapPanel(cache, false)`. Los recursos y comentarios anteriores se conservan.
 
-### Contrato para el integrante de red
+### Conexion TCP
 
-Obtener `ClientPanel client = gameWindow.getClientPanel()` en lugar de conectar
-solo el controlador de clics. Despues de abrir TCP, llamar:
-
-```java
-client.setMessageSender(conexion::encolarLineaJson);
-```
-
-`conexion::encolarLineaJson` representa el metodo real que implementara el
-integrante de red; no existe en este repositorio. Debe ser no bloqueante, conservar
-el orden, escribir UTF-8 y agregar UN salto de linea y flush. Recibe JSON sin
-delimitador para CREATE_MATCH, JOIN_MATCH, SELECT_ANIMAL, MOVE_ANIMALS,
-ATTACK y VIEW_ZONE. Encolar una orden no equivale a su aceptacion por el servidor.
-
-Para cada linea completa leida del socket:
-
-```java
-client.receiveServerLine(linea);
-```
-
-No convertir animales ni llamar por separado a `controller.updateState`:
-`ClientPanel` ya actualiza modelo, dibujo, seleccion, zonas y pantallas.
-Los nueve tipos de mensajes entrantes tienen manejo en este flujo.
-ERROR se muestra sin abandonar la partida; GAME_OVER muestra ganador,
-duracion y tabla de packs; MATCH_CANCELLED muestra la razon, sin ganador.
-Tras terminar o cancelar, se puede volver al inicio usando la misma conexion.
-
-Al detectar EOF, cierre o fallo que invalide TCP:
-
-```java
-client.connectionClosed(motivo);
-```
-
-Para un error de envio recuperable sin cerrar la conexion:
-
-```java
-client.reportConnectionError(motivo);
-```
-
-Estos metodos admiten llamadas desde el hilo de red y programan los cambios
-de interfaz en Swing. La capa TCP debe ordenar sus callbacks y dejar de
-entregar mensajes de una conexion cerrada antes de registrar otra. No se debe
-bloquear Swing con lecturas, escrituras o reconexiones. Al cerrar la ventana,
-el integrante de red debe cerrar su socket y sus hilos.
-`NetworkClient` y `MessageSender` se mantienen sin implementar para ese trabajo.
+`NetworkClient` abre TCP a `localhost:12345` y ejecuta la lectura y escritura
+fuera del hilo de Swing. Los mensajes JSON se envian en UTF-8, separados por
+saltos de linea, y cada linea recibida se entrega al panel para su parseo.
+El socket se cierra al salir de la aplicacion.
 
 Pruebas del flujo, representacion y compatibilidad espacial, sin sockets:
 
@@ -87,8 +48,7 @@ Pruebas del flujo, representacion y compatibilidad espacial, sin sockets:
 mvn "-Dtest=ClientPanelTest,GameStateTest,MapZonesTest" test
 ```
 
-La integracion TCP real con dos clientes sigue siendo una verificacion pendiente;
-estas pruebas no certifican esa conexion.
+Estas pruebas no verifican la conexion TCP con un servidor en ejecucion.
 
 ## Cache de imagenes SVG
 
@@ -97,9 +57,9 @@ transparencia, dimensiones, reutilizacion y proteccion de las colecciones.
 `SpriteCacheManifestTest` comprueba el parseo real del manifiesto por
 `SpriteCache`: JSON valido en UTF-8, orden de campos, tipos incorrectos,
 sintaxis no estandar y definiciones incompletas o invalidas.
-No son pruebas de recepcion de mensajes del servidor: ese lector de red
-todavia no esta implementado en este repositorio. El parser independiente
-de mensajes del servidor tiene sus propias pruebas descritas al final.
+No son pruebas de recepcion de mensajes del servidor. La conexion TCP esta
+implementada en `NetworkClient`; el parser independiente de mensajes del
+servidor tiene sus propias pruebas descritas al final.
 
 Para ejecutar estas pruebas:
 
@@ -361,8 +321,8 @@ los animales muertos, ausentes o que ya no estan en la zona mostrada.
 
 ### API de clics de bajo nivel
 
-No se implementaron sockets ni se modificaron `NetworkClient` o `MessageSender`.
-Para pruebas aisladas se puede obtener `gameWindow.getController()` y configurar:
+La aplicacion usa `NetworkClient` para TCP. Para pruebas aisladas se puede
+obtener `gameWindow.getController()` y configurar:
 
 ```java
 controller.setMessageSender(conexion::enviarLineaJson);
