@@ -33,6 +33,7 @@ public final class GameController extends MouseAdapter {
     private boolean stateReceived;
     private boolean interactionEnabled = true;
     private final Set<Integer> exploringIds = new LinkedHashSet<>();
+    private final Set<String> followedZones = new HashSet<>();
     private String requestedFollowZone;
     private Consumer<String> messageSender;//funcion que se conecta con el servidor para enviar mensajes
 
@@ -77,6 +78,14 @@ public final class GameController extends MouseAdapter {
         this.selectedZone = selectedZone;
         stateReceived = true;
         view.showGameZones(this.visibleZones, selectedZone);
+        if (selectedZone != null) {
+            followedZones.add(selectedZone);
+        }
+        if (requestedFollowZone != null
+                && (java.util.Objects.equals(selectedZone, requestedFollowZone)
+                        || !this.visibleZones.contains(requestedFollowZone))) {
+            requestedFollowZone = null;
+        }
         exploringIds.removeIf(id -> this.ownAnimals.stream().noneMatch(animal ->
                 animal.id() == id && animal.alive()));
         if (selectedZone == null) {
@@ -147,6 +156,8 @@ public final class GameController extends MouseAdapter {
                     exploringIds.clear();
                     exploringIds.addAll(selectedIds);
                     requestedFollowZone = null;
+                    followedZones.clear();
+                    followedZones.add(selectedZone);
                 }
             }
         }
@@ -193,6 +204,7 @@ public final class GameController extends MouseAdapter {
 
     private void stopFollowing() {
         exploringIds.clear();
+        followedZones.clear();
         requestedFollowZone = null;
     }
 
@@ -200,21 +212,24 @@ public final class GameController extends MouseAdapter {
         if (!interactionEnabled || selectedZone == null || exploringIds.isEmpty()) {
             return;
         }
-        if (selectedZone.equals(requestedFollowZone)) {
-            requestedFollowZone = null;
+        if (requestedFollowZone != null) {
+            return;
         }
-        // Sigue un miembro estable del grupo usando solo posiciones y zonas confirmadas.
-        int leader = exploringIds.iterator().next();
-        ownAnimals.stream().filter(animal -> animal.id() == leader).findFirst()
-                .flatMap(animal -> MapZones.at(animal.x(), animal.y()))
+        ownAnimals.stream().filter(animal -> exploringIds.contains(animal.id()) && animal.alive())
+                .map(animal -> MapZones.at(animal.x(), animal.y()))
+                .flatMap(Optional::stream)
                 .map(zone -> zone.name())
-                .filter(zone -> visibleZones.contains(zone) && !zone.equals(selectedZone)
-                        && !zone.equals(requestedFollowZone))
+                .filter(zone -> visibleZones.contains(zone) && !followedZones.contains(zone))
+                .findFirst()
                 .ifPresent(zone -> {
                     if (send("VIEW_ZONE", new ZonePayload(zone))) {
                         requestedFollowZone = zone;
                     }
                 });
+    }
+
+    public void onAutomaticZoneRequestRejected() {
+        requestedFollowZone = null;
     }
 
     //crear y cargar en el json el comando a enviar al servidor

@@ -50,6 +50,11 @@ con el mismo orden de desempate que el servidor. La niebla recorta esa region,
 no los rectangulos de la demostracion. Sin zona seleccionada, todo queda negro.
 El cliente conserva localmente los doce centros porque el protocolo solo envia
 las zonas ocupadas; si cambia el mapa del servidor, hay que actualizar este contrato.
+Al explorar, el seguimiento considera a todos los animales seleccionados que
+siguen vivos, no solo al primero del grupo. Las zonas ya seguidas durante esa
+orden se recuerdan para evitar volver a una zona donde quedaron otros animales;
+si el servidor rechaza el cambio automatico, se vuelve a intentar con el siguiente
+snapshot.
 
 El boton de prueba, los selectores de ruta/direccion, la ruta cian y el mono de
 demostracion NO aparecen en una partida. `new MapPanel(cache)` conserva la

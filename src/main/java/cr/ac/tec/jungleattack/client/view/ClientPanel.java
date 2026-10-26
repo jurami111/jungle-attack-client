@@ -155,6 +155,9 @@ public final class ClientPanel extends JPanel {
                 reportError("Mensaje incompatible: revisar especies, colores y centros de zonas");
                 return;
             }
+            if (message.payload() instanceof ServerError) {
+                controller.onAutomaticZoneRequestRejected();
+            }
             requestPending = false;
             model.apply(message);
         });

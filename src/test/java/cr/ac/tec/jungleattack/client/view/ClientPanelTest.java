@@ -224,6 +224,37 @@ class ClientPanelTest {
     }
 
     @Test
+    void retriesAutomaticZoneSwitchAfterServerError() throws Exception {
+        SwingUtilities.invokeAndWait(() -> {
+            ClientPanel panel = new ClientPanel(CACHE);
+            List<String> sent = new ArrayList<>();
+            panel.setMessageSender(sent::add);
+            MapPanel map = map(panel);
+            map.setSize(2400, 1792);
+            JsonObject update = message("GAME_STARTED");
+            panel.receiveServerLine(update.toString());
+            click(panel, 311, 327, MouseEvent.BUTTON1);
+            click(panel, 700, 327, MouseEvent.BUTTON3);
+
+            JsonObject payload = update.getAsJsonObject("payload");
+            JsonObject monteverde = JsonParser.parseString(
+                    "{\"name\":\"Monteverde\",\"centerX\":910,\"centerY\":316}").getAsJsonObject();
+            payload.getAsJsonArray("ownAnimals").get(0).getAsJsonObject().addProperty("x", 910);
+            payload.getAsJsonArray("ownAnimals").get(0).getAsJsonObject().addProperty("y", 316);
+            payload.getAsJsonArray("visibleZones").add(monteverde);
+            panel.receiveServerLine(update.toString());
+            assertEquals(2, sent.size());
+
+            panel.receiveServerLine(EXAMPLES.get("ERROR"));
+            panel.receiveServerLine(update.toString());
+            assertEquals(3, sent.size());
+            assertEquals("VIEW_ZONE", JsonParser.parseString(sent.getLast()).getAsJsonObject()
+                    .get("type").getAsString());
+            map.removeNotify();
+        });
+    }
+
+    @Test
     void tenAnimalsAndZoneChangesWaitForAcknowledgementAndNoZoneClearsSelection() throws Exception {
         SwingUtilities.invokeAndWait(() -> {
             ClientPanel panel = new ClientPanel(CACHE);

@@ -105,6 +105,83 @@ class GameControllerTest {
     }
 
     @Test
+    void followsAnySelectedExplorerAcrossNewZonesWithoutSwitchingBackToTheGroup() throws Exception {
+        SwingUtilities.invokeAndWait(() -> {
+            MapPanel view = new MapPanel(CACHE, false);
+            view.setSize(1200, 896);
+            GameController controller = new GameController(view);
+            List<String> messages = new ArrayList<>();
+            controller.setMessageSender(messages::add);
+            List<ClickableAnimal> own = List.of(
+                    new ClickableAnimal(1, 311, 327, true),
+                    new ClickableAnimal(2, 321, 327, true),
+                    new ClickableAnimal(3, 910, 316, true));
+            List<String> occupiedZones = List.of("Playa Conchal", "Monteverde");
+            controller.updateState(own, List.of(), occupiedZones, "Playa Conchal");
+            click(view, 311, 327, MouseEvent.BUTTON1, false);
+            click(view, 321, 327, MouseEvent.BUTTON1, true);
+            click(view, 700, 327, MouseEvent.BUTTON3, false);
+            assertEquals("MOVE_ANIMALS", JsonParser.parseString(messages.getFirst())
+                    .getAsJsonObject().get("type").getAsString());
+
+            controller.updateState(List.of(
+                    new ClickableAnimal(1, 311, 327, true),
+                    new ClickableAnimal(2, 910, 316, true),
+                    new ClickableAnimal(3, 910, 316, true)), List.of(), occupiedZones, "Playa Conchal");
+            assertJson("""
+                    {"type":"VIEW_ZONE","payload":{"zone":"Monteverde"}}
+                    """, messages.getLast());
+
+            controller.updateState(List.of(
+                    new ClickableAnimal(1, 311, 327, true),
+                    new ClickableAnimal(2, 910, 316, true),
+                    new ClickableAnimal(3, 910, 316, true)), List.of(), occupiedZones, "Monteverde");
+            int confirmedCount = messages.size();
+            controller.updateState(List.of(
+                    new ClickableAnimal(1, 311, 327, true),
+                    new ClickableAnimal(2, 910, 316, true),
+                    new ClickableAnimal(3, 910, 316, true)), List.of(), occupiedZones, "Monteverde");
+            assertEquals(confirmedCount, messages.size(), "No debe volver a la zona del grupo rezagado");
+
+            List<String> threeZones = List.of("Playa Conchal", "Monteverde", "Cerro Zurqui");
+            controller.updateState(List.of(
+                    new ClickableAnimal(1, 311, 327, true),
+                    new ClickableAnimal(2, 1507, 309, true)), List.of(), threeZones, "Monteverde");
+            assertJson("""
+                    {"type":"VIEW_ZONE","payload":{"zone":"Cerro Zurqui"}}
+                    """, messages.getLast());
+            view.removeNotify();
+        });
+    }
+
+    @Test
+    void retriesAutomaticZoneRequestAfterServerRejectsIt() throws Exception {
+        SwingUtilities.invokeAndWait(() -> {
+            MapPanel view = new MapPanel(CACHE, false);
+            view.setSize(1200, 896);
+            GameController controller = new GameController(view);
+            List<String> messages = new ArrayList<>();
+            controller.setMessageSender(messages::add);
+            controller.updateState(List.of(new ClickableAnimal(1, 311, 327, true)),
+                    List.of(), List.of("Playa Conchal"), "Playa Conchal");
+            click(view, 311, 327, MouseEvent.BUTTON1, false);
+            click(view, 700, 327, MouseEvent.BUTTON3, false);
+            controller.updateState(List.of(new ClickableAnimal(1, 910, 316, true)),
+                    List.of(), List.of("Playa Conchal", "Monteverde"), "Playa Conchal");
+            assertEquals(2, messages.size());
+
+            controller.onAutomaticZoneRequestRejected();
+            controller.updateState(List.of(new ClickableAnimal(1, 910, 316, true)),
+                    List.of(), List.of("Playa Conchal", "Monteverde"), "Playa Conchal");
+            assertEquals(3, messages.size());
+            assertJson("""
+                    {"type":"VIEW_ZONE","payload":{"zone":"Monteverde"}}
+                    """, messages.getLast());
+            view.removeNotify();
+        });
+    }
+
+    @Test
     void controlClickTogglesAndPlainClickReplacesOrClearsSelection() throws Exception {
         SwingUtilities.invokeAndWait(() -> {
             MapPanel view = new MapPanel(CACHE);
