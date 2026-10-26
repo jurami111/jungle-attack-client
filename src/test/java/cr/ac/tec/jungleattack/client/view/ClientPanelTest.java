@@ -171,6 +171,59 @@ class ClientPanelTest {
     }
 
     @Test
+    void explorationFollowsConfirmedAnimalAcrossZonesWithoutRevealingFogEarly() throws Exception {
+        SwingUtilities.invokeAndWait(() -> {
+            ClientPanel panel = new ClientPanel(CACHE);
+            List<String> sent = new ArrayList<>();
+            panel.setMessageSender(sent::add);
+            MapPanel map = map(panel);
+            map.setSize(2400, 1792);
+            panel.receiveServerLine(EXAMPLES.get("GAME_STARTED"));
+            click(panel, 311, 327, MouseEvent.BUTTON1);
+            click(panel, 910, 316, MouseEvent.BUTTON3);
+            assertEquals("MOVE_ANIMALS", JsonParser.parseString(sent.getFirst())
+                    .getAsJsonObject().get("type").getAsString());
+            assertFalse(map.isVisiblePoint(910, 316));
+            assertEquals(java.awt.Color.BLACK.getRGB(), paint(map).getRGB(910, 316));
+
+            JsonObject update = message("GAME_STARTED");
+            JsonObject payload = update.getAsJsonObject("payload");
+            JsonObject monteverde = JsonParser.parseString(
+                    "{\"name\":\"Monteverde\",\"centerX\":910,\"centerY\":316}").getAsJsonObject();
+            payload.getAsJsonArray("ownAnimals").get(0).getAsJsonObject().addProperty("x", 910);
+            payload.getAsJsonArray("ownAnimals").get(0).getAsJsonObject().addProperty("y", 316);
+            payload.getAsJsonArray("visibleZones").add(monteverde);
+            panel.receiveServerLine(update.toString());
+            assertEquals(2, sent.size());
+            assertEquals(JsonParser.parseString(
+                    "{\"type\":\"VIEW_ZONE\",\"payload\":{\"zone\":\"Monteverde\"}}"),
+                    JsonParser.parseString(sent.getLast()));
+            assertFalse(map.isVisiblePoint(910, 316),
+                    "Pedir la zona no revela datos del snapshot anterior");
+            panel.receiveServerLine(update.toString());
+            assertEquals(2, sent.size(), "No reenviar VIEW_ZONE en cada tick");
+            payload.add("selectedZone", monteverde);
+            payload.add("visibleFlags", new com.google.gson.JsonArray());
+            payload.add("visibleCoffeeCups", new com.google.gson.JsonArray());
+            panel.receiveServerLine(update.toString());
+            assertTrue(map.isVisiblePoint(910, 316));
+            assertFalse(map.isVisiblePoint(311, 327));
+            assertNotEquals(java.awt.Color.BLACK.getRGB(), paint(map).getRGB(910, 316));
+            click(panel, 1000, 400, MouseEvent.BUTTON3);
+            assertEquals("[1]", JsonParser.parseString(sent.getLast()).getAsJsonObject()
+                    .getAsJsonObject("payload").get("animalIds").toString(),
+                    "El explorador conserva su seleccion al cruzar");
+
+            payload.getAsJsonArray("ownAnimals").get(0).getAsJsonObject().addProperty("alive", false);
+            panel.receiveServerLine(update.toString());
+            int count = sent.size();
+            click(panel, 1000, 400, MouseEvent.BUTTON3);
+            assertEquals(count, sent.size(), "Un explorador muerto ya no recibe ordenes");
+            map.removeNotify();
+        });
+    }
+
+    @Test
     void tenAnimalsAndZoneChangesWaitForAcknowledgementAndNoZoneClearsSelection() throws Exception {
         SwingUtilities.invokeAndWait(() -> {
             ClientPanel panel = new ClientPanel(CACHE);

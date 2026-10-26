@@ -6,6 +6,7 @@ import java.awt.FlowLayout;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Point;
+import java.awt.event.MouseWheelEvent;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.Area;
 import java.awt.geom.Ellipse2D;
@@ -80,6 +81,9 @@ public class MapPanel extends JPanel {
     private final Map<Integer, Double> headings = new HashMap<>();
     private final java.util.Set<Integer> movingIds = new HashSet<>();
     private long animationStart = System.nanoTime();
+    private double zoom = 1.0;
+    private double cameraOffsetX;
+    private double cameraOffsetY;
 
     public MapPanel(SpriteCache spriteCache) { // constructor del panel del mapa
         this(spriteCache, true);
@@ -173,6 +177,7 @@ public class MapPanel extends JPanel {
         add(zoneSelector);
         updateIdleStatus();
         gameAnimationTimer = new Timer(UIConstants.ANIMATION_DELAY_MS, event -> repaint());
+        addMouseWheelListener(this::zoomAtCursor);
         if (!demonstration) {
             movementButton.setVisible(false);
             routeSelector.setVisible(false);
@@ -216,6 +221,9 @@ public class MapPanel extends JPanel {
         headings.clear();
         movingIds.clear();
         animationStart = System.nanoTime();
+        zoom = 1.0;
+        cameraOffsetX = 0;
+        cameraOffsetY = 0;
         gameAnimationTimer.stop();
         showSelection(List.of());
         showGameZones(List.of(), null);
@@ -285,7 +293,39 @@ public class MapPanel extends JPanel {
     }
 
     private double mapScale(BufferedImage image) {
-        return Math.min(getWidth() / (double) image.getWidth(), getHeight() / (double) image.getHeight());
+        return zoom * Math.min(getWidth() / (double) image.getWidth(), getHeight() / (double) image.getHeight());
+    }
+
+    private double mapOffsetX(BufferedImage image, double scale) {
+        return (getWidth() - image.getWidth() * scale) / 2 + cameraOffsetX * scale;
+    }
+
+    private double mapOffsetY(BufferedImage image, double scale) {
+        return (getHeight() - image.getHeight() * scale) / 2 + cameraOffsetY * scale;
+    }
+
+    private void zoomAtCursor(MouseWheelEvent event) {
+        if (mapImage.isEmpty() || toMapPoint(event.getPoint()).isEmpty()) {
+            return;
+        }
+        BufferedImage image = mapImage.get();
+        double previousScale = mapScale(image);
+        double nextZoom = Math.max(1.0, Math.min(UIConstants.MAP_MAX_ZOOM,
+                zoom * Math.pow(UIConstants.MAP_ZOOM_STEP, -event.getPreciseWheelRotation())));
+        if (nextZoom == zoom) {
+            return;
+        }
+        zoom = nextZoom;
+        double nextScale = mapScale(image);
+        // Conserva bajo el cursor la misma coordenada global al cambiar la escala.
+        cameraOffsetX += (event.getX() - getWidth() / 2.0) * (1 / nextScale - 1 / previousScale);
+        cameraOffsetY += (event.getY() - getHeight() / 2.0) * (1 / nextScale - 1 / previousScale);
+        if (zoom == 1.0) {
+            cameraOffsetX = 0;
+            cameraOffsetY = 0;
+        }
+        event.consume();
+        repaint();
     }
     // convierte un punto de la interfaz a un punto en el mapa, considerando la escala y el centrado de la imagen
     public Optional<Point2D.Double> toMapPoint(Point point) {
@@ -294,8 +334,8 @@ public class MapPanel extends JPanel {
         }
         BufferedImage image = mapImage.get();
         double scale = mapScale(image);
-        double x = (point.x - (getWidth() - image.getWidth() * scale) / 2) / scale;
-        double y = (point.y - (getHeight() - image.getHeight() * scale) / 2) / scale;
+        double x = (point.x - mapOffsetX(image, scale)) / scale;
+        double y = (point.y - mapOffsetY(image, scale)) / scale;
         return x >= 0 && y >= 0 && x < image.getWidth() && y < image.getHeight()
                 ? Optional.of(new Point2D.Double(x, y)) : Optional.empty();
     }
@@ -345,8 +385,8 @@ public class MapPanel extends JPanel {
 
             double scale = mapScale(image);
 
-            double x = (getWidth() - image.getWidth() * scale) / 2;
-            double y = (getHeight() - image.getHeight() * scale) / 2;
+            double x = mapOffsetX(image, scale);
+            double y = mapOffsetY(image, scale);
             
             // aplica la transformación de traslación y escala antes de dibujar la imagen del mapa
             graphics2D.translate(x, y);
@@ -429,9 +469,8 @@ public class MapPanel extends JPanel {
         double scale = UIConstants.TEST_ANIMAL_SIZE / (double) Math.max(frame.getWidth(), frame.getHeight());
         AffineTransform placement = new AffineTransform();
         placement.translate(animal.x(), animal.y());
-        if (animal.species().equals("MONO")) {
-            placement.rotate(headings.getOrDefault(animal.id(), MONO_FACING) - MONO_FACING);
-        }
+        double facing = originalFacing(animal.species());
+        placement.rotate(headings.getOrDefault(animal.id(), facing) - facing);
         placement.scale(scale, scale);
         placement.translate(-frame.getWidth() / 2.0, -frame.getHeight() / 2.0);
         graphics.drawImage(frame, placement, this);
@@ -442,6 +481,14 @@ public class MapPanel extends JPanel {
                 - UIConstants.ENERGY_BAR_GAP - UIConstants.ENERGY_BAR_HEIGHT,
                 animal.energy(), Boolean.TRUE.equals(animal.bot())
                         ? UIConstants.MAX_BOT_ENERGY : UIConstants.MAX_PLAYER_ENERGY);
+    }
+
+    private static double originalFacing(String species) {
+        return switch (species) {
+            case "TORTUGA" -> 0;
+            case "RANA", "MARIPOSA" -> -Math.PI / 2;
+            default -> MONO_FACING;
+        };
     }
 
     private void paintRoute(Graphics2D graphics2D, Optional<Route> selected) {

@@ -1,5 +1,26 @@
 # jungle-attack-client
 
+## Zoom y orientacion en el mapa
+
+La rueda del mouse sobre el mapa acerca y aleja entre el ajuste inicial (1x)
+y 8x respecto de ese ajuste. El zoom se centra en el cursor; al volver a 1x
+se recupera el mapa completo centrado. El zoom no revela zonas ocultas.
+Mapa, animales, barras, banderas, tazas y seleccion usan la misma transformacion
+que la conversion inversa de clics: los comandos conservan coordenadas globales.
+Los controles de Swing no aumentan de tamano. Una partida nueva o desconexion
+restablece el zoom. No cambia posiciones, rutas ni reglas del servidor.
+
+Todas las especies giran segun el desplazamiento recibido entre snapshots y
+conservan la ultima orientacion al detenerse. Se respeta la direccion de los
+dibujos originales: tortuga a la derecha, rana y mariposa hacia arriba,
+mono, perezoso, serpiente y yiguirro hacia abajo. Antes del primer movimiento
+se conserva la orientacion original. La rotacion afecta solo al sprite,
+no a la barra, el texto ni al punto de seleccion.
+
+`MapInteractionTest` verifica el anclaje, limites y reinicio del zoom, comandos
+de movimiento a varias dimensiones de ventana y el dibujo de las siete especies
+orientadas en cuatro direcciones, incluyendo la pose detenida.
+
 ## Cliente preparado para integrar TCP
 
 `Main` abre el flujo real: inicio, crear/unirse, espera, seleccion de animal,
@@ -293,7 +314,9 @@ agrega o quita un miembro. Un clic izquierdo en espacio vacio limpia la
 seleccion, salvo que se mantenga Ctrl. La seleccion se resalta en amarillo.
 El clic derecho sobre otro animal visible solicita ATTACK; sobre espacio
 libre solicita MOVE_ANIMALS. No se puede atacar un animal propio.
-Los clics fuera del mapa o de la zona mostrada no producen comandos.
+Los clics fuera del mapa no producen comandos. La seleccion y los ataques
+solo consideran animales visibles; un clic derecho en una zona cubierta
+puede enviar MOVE_ANIMALS sin revelar ni atacar entidades ocultas.
 Si varios animales estan cerca, se toma el mas cercano dentro de
 `ANIMAL_CLICK_RADIUS`, usando distancias al cuadrado, sin raiz cuadrada.
 
@@ -317,7 +340,20 @@ seleccion, se vacia el selector y se cubre todo el mapa de negro.
 No se generan ordenes por clic mientras no exista una zona visible.
 Este estado se distingue del modo de prueba local sin datos del servidor.
 Los cambios de estado no reenvian comandos y eliminan de la seleccion
-los animales muertos, ausentes o que ya no estan en la zona mostrada.
+los animales muertos, ausentes o que ya no estan en la zona mostrada,
+salvo los seleccionados que estan explorando tras una orden de movimiento.
+
+Al enviar MOVE_ANIMALS, el cliente sigue al primer miembro seleccionado vivo
+del grupo. Cuando un snapshot confirma que ese animal entro en otra zona
+y la incluye en visibleZones, solicita VIEW_ZONE una sola vez para esa zona.
+La niebla cambia solo cuando otro snapshot confirma selectedZone; nunca se
+revelan enemigos, tazas ni banderas usando datos de la zona anterior.
+El explorador conserva su seleccion al cruzar para poder seguir recibiendo
+ordenes. Otra seleccion, un ataque, elegir una zona manualmente, terminar
+la partida o desconectarse cancela el seguimiento. Los muertos se eliminan.
+Con varios animales separados se sigue un miembro estable, no se alterna
+entre zonas en cada tick. La visibilidad no es exploracion permanente:
+se muestra una zona a la vez y el servidor decide cuales estan ocupadas.
 
 ### API de clics de bajo nivel
 

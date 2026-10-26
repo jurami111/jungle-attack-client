@@ -31,7 +31,7 @@ public final class NetworkClient implements AutoCloseable {
     }
 
     private void connectAndRead() {
-        try (Socket connection = new Socket("localhost", 12345)) {
+        try (Socket connection = new Socket("100.124.139.105", 12345)) {
             if (stopped.get()) {
                 return;
             }

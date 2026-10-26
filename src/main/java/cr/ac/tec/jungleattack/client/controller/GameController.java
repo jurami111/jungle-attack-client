@@ -18,6 +18,7 @@ import com.google.gson.Gson;
 
 import cr.ac.tec.jungleattack.client.config.UIConstants;
 import cr.ac.tec.jungleattack.client.model.ClickableAnimal;
+import cr.ac.tec.jungleattack.client.model.MapZones;
 import cr.ac.tec.jungleattack.client.view.MapPanel;
 
 // Controlador que gestiona la lógica de interacción del usuario con los animales y el mapa.
@@ -31,6 +32,8 @@ public final class GameController extends MouseAdapter {
     private String selectedZone;
     private boolean stateReceived;
     private boolean interactionEnabled = true;
+    private final Set<Integer> exploringIds = new LinkedHashSet<>();
+    private String requestedFollowZone;
     private Consumer<String> messageSender;//funcion que se conecta con el servidor para enviar mensajes
 
     public GameController(MapPanel view) {
@@ -47,6 +50,7 @@ public final class GameController extends MouseAdapter {
         interactionEnabled = enabled;
         if (!enabled) {
             selectedIds.clear();
+            stopFollowing();
             view.showSelection(List.of());
         }
     }
@@ -73,10 +77,17 @@ public final class GameController extends MouseAdapter {
         this.selectedZone = selectedZone;
         stateReceived = true;
         view.showGameZones(this.visibleZones, selectedZone);
+        exploringIds.removeIf(id -> this.ownAnimals.stream().noneMatch(animal ->
+                animal.id() == id && animal.alive()));
+        if (selectedZone == null) {
+            stopFollowing();
+        }
         // Elimina los IDs de animales seleccionados que ya no son visibles o están muertos
         selectedIds.removeIf(id -> this.ownAnimals.stream().noneMatch(animal ->
-                animal.id() == id && animal.alive() && view.isVisiblePoint(animal.x(), animal.y())));
+                animal.id() == id && animal.alive()
+                        && (exploringIds.contains(id) || view.isVisiblePoint(animal.x(), animal.y()))));
         refreshSelection();
+        followExplorers();
     }
 
     //INTERPRESATR UN CLIC DEL RATON EN EL MAPA
@@ -95,15 +106,20 @@ public final class GameController extends MouseAdapter {
             return;
         }
         Optional<Point2D.Double> position = view.toMapPoint(event.getPoint());
-        if (position.isEmpty() || !view.isVisiblePoint(position.get().x, position.get().y)) {
-            view.showInteractionStatus("Haz clic dentro de la zona visible");
+        if (position.isEmpty()) {
+            view.showInteractionStatus("Haz clic dentro del mapa");
             return;
         }
         Point2D.Double point = position.get();
+        if (SwingUtilities.isLeftMouseButton(event) && !view.isVisiblePoint(point.x, point.y)) {
+            view.showInteractionStatus("Selecciona animales dentro de la zona visible");
+            return;
+        }
         Optional<ClickableAnimal> own = animalAt(ownAnimals, point);
 
         //CLIC IZQUIERDO PARA SELECCIONAR ANIMALES, CLIC DERECHO PARA ACCIONES SOBRE ANIMALES SELECCIONADOS
         if (SwingUtilities.isLeftMouseButton(event)) {
+            stopFollowing();
             if (!event.isControlDown()) {
                 selectedIds.clear();
             }
@@ -118,14 +134,20 @@ public final class GameController extends MouseAdapter {
         } else {
             List<ClickableAnimal> targets = new ArrayList<>(ownAnimals);// crea la lista de posibles objetivos, incluyendo animales propios y visibles
             targets.addAll(visibleAnimals);// añade los animales visibles a la lista de posibles objetivos
-            Optional<ClickableAnimal> target = animalAt(targets, point);
+            Optional<ClickableAnimal> target = view.isVisiblePoint(point.x, point.y)
+                    ? animalAt(targets, point) : Optional.empty();
             if (target.isPresent() && ownAnimals.contains(target.get())) { // el objetivo no puede ser un animal propio
                 view.showInteractionStatus("El objetivo no puede ser un animal propio");
             } else if (target.isPresent()) {
+                stopFollowing();
                 send("ATTACK", new AttackPayload(List.copyOf(selectedIds), target.get().id()));
             } else {
-                send("MOVE_ANIMALS", new MovePayload(List.copyOf(selectedIds),
-                        (int) Math.floor(point.x), (int) Math.floor(point.y)));
+                if (send("MOVE_ANIMALS", new MovePayload(List.copyOf(selectedIds),
+                        (int) Math.floor(point.x), (int) Math.floor(point.y)))) {
+                    exploringIds.clear();
+                    exploringIds.addAll(selectedIds);
+                    requestedFollowZone = null;
+                }
             }
         }
     }
@@ -148,7 +170,8 @@ public final class GameController extends MouseAdapter {
      
     // actualiza la selección de animales en la vista y muestra el estado de la interacción
     private void refreshSelection() {
-        view.showSelection(ownAnimals.stream().filter(animal -> selectedIds.contains(animal.id())).toList());
+        view.showSelection(ownAnimals.stream().filter(animal -> selectedIds.contains(animal.id())
+                && view.isVisiblePoint(animal.x(), animal.y())).toList());
         view.showInteractionStatus(stateReceived && selectedZone == null
                 ? "No hay una zona visible" : "Animales seleccionados: " + selectedIds.size());
     }
@@ -161,21 +184,48 @@ public final class GameController extends MouseAdapter {
         if (selectedZone == null) {
             return; // El selector conserva su funcionamiento local en el modo de prueba.
         }
+        stopFollowing();
         view.showGameZones(visibleZones, selectedZone);
         if (visibleZones.contains(zone) && !selectedZone.equals(zone)) {
             send("VIEW_ZONE", new ZonePayload(zone));
         }
     }
 
+    private void stopFollowing() {
+        exploringIds.clear();
+        requestedFollowZone = null;
+    }
+
+    private void followExplorers() {
+        if (!interactionEnabled || selectedZone == null || exploringIds.isEmpty()) {
+            return;
+        }
+        if (selectedZone.equals(requestedFollowZone)) {
+            requestedFollowZone = null;
+        }
+        // Sigue un miembro estable del grupo usando solo posiciones y zonas confirmadas.
+        int leader = exploringIds.iterator().next();
+        ownAnimals.stream().filter(animal -> animal.id() == leader).findFirst()
+                .flatMap(animal -> MapZones.at(animal.x(), animal.y()))
+                .map(zone -> zone.name())
+                .filter(zone -> visibleZones.contains(zone) && !zone.equals(selectedZone)
+                        && !zone.equals(requestedFollowZone))
+                .ifPresent(zone -> {
+                    if (send("VIEW_ZONE", new ZonePayload(zone))) {
+                        requestedFollowZone = zone;
+                    }
+                });
+    }
 
     //crear y cargar en el json el comando a enviar al servidor
-    private <T> void send(String type, T payload) {// envía un comando al servidor en formato JSON
+    private <T> boolean send(String type, T payload) {// envía un comando al servidor en formato JSON
         if (messageSender == null) {
             report("No hay envio conectado: la orden no fue enviada");
-            return;
+            return false;
         }
         messageSender.accept(gson.toJson(new Command<>(type, payload)));
         view.showInteractionStatus("Orden entregada a la conexion: " + type);
+        return true;
     }
     
     // muestra un mensaje de reporte en la consola y en la vista si es el hilo de la interfaz

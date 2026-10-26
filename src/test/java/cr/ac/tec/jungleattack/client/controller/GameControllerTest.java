@@ -79,6 +79,32 @@ class GameControllerTest {
     }
 
     @Test
+    void manualZoneChoiceCancelsAutomaticFollowing() throws Exception {
+        SwingUtilities.invokeAndWait(() -> {
+            MapPanel view = new MapPanel(CACHE, false);
+            view.setSize(1200, 896);
+            GameController controller = new GameController(view);
+            List<String> messages = new ArrayList<>();
+            controller.setMessageSender(messages::add);
+            controller.updateState(OWN, List.of(), ZONES, "Playa Conchal");
+            click(view, 300, 300, MouseEvent.BUTTON1, false);
+            click(view, 900, 300, MouseEvent.BUTTON3, false);
+            JComboBox<?> selector = java.util.Arrays.stream(view.getComponents())
+                    .filter(JComboBox.class::isInstance).map(JComboBox.class::cast)
+                    .filter(java.awt.Component::isVisible).findFirst().orElseThrow();
+            selector.setSelectedItem("Monteverde");
+            assertEquals(2, messages.size());
+            controller.updateState(List.of(new ClickableAnimal(1, 910, 316, true)),
+                    List.of(), ZONES, "Playa Conchal");
+            assertEquals(2, messages.size(), "La eleccion manual no dispara seguimiento automatico");
+            controller.updateState(List.of(new ClickableAnimal(1, 910, 316, true)),
+                    List.of(), ZONES, "Monteverde");
+            assertEquals(2, messages.size());
+            view.removeNotify();
+        });
+    }
+
+    @Test
     void controlClickTogglesAndPlainClickReplacesOrClearsSelection() throws Exception {
         SwingUtilities.invokeAndWait(() -> {
             MapPanel view = new MapPanel(CACHE);
@@ -111,7 +137,7 @@ class GameControllerTest {
     }
 
     @Test
-    void rejectsHiddenAnimalsDeadAnimalsOwnTargetsAndClicksOutsideVisibleZone() throws Exception {
+    void rejectsHiddenSelectionButAllowsMovementIntoFogWithoutAttackingHiddenAnimals() throws Exception {
         SwingUtilities.invokeAndWait(() -> {
             MapPanel view = new MapPanel(CACHE);
             view.setSize(600, 900);
@@ -125,10 +151,18 @@ class GameControllerTest {
             assertEquals("Animales seleccionados: 0", status(view).getText());
             click(view, 300, 300, MouseEvent.BUTTON1, false);
             click(view, 320, 300, MouseEvent.BUTTON3, false);
+            assertTrue(messages.isEmpty());
+            click(view, 900, 300, MouseEvent.BUTTON1, false);
+            assertEquals("Selecciona animales dentro de la zona visible", status(view).getText());
             click(view, 900, 300, MouseEvent.BUTTON3, false);
+            assertEquals(1, messages.size());
+            var command = JsonParser.parseString(messages.getFirst()).getAsJsonObject();
+            assertEquals("MOVE_ANIMALS", command.get("type").getAsString(),
+                    "Un enemigo oculto no se convierte en objetivo de ataque");
+            assertEquals("[1]", command.getAsJsonObject("payload").get("animalIds").toString());
             view.dispatchEvent(new MouseEvent(view, MouseEvent.MOUSE_CLICKED, 0, 0,
                     100, 10, 1, false, MouseEvent.BUTTON3));
-            assertTrue(messages.isEmpty());
+            assertEquals(1, messages.size());
             assertTrue(view.toMapPoint(new java.awt.Point(100, 10)).isEmpty(),
                     "La franja fuera del mapa no tiene coordenadas del juego");
             view.removeNotify();

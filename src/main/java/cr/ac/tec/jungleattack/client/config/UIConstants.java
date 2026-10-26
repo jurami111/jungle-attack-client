@@ -14,6 +14,9 @@ public final class UIConstants {
     public static final int TEST_ANIMAL_SIZE = 48;
     public static final int ANIMATION_DELAY_MS = 33;
     public static final double TEST_MOVEMENT_SPEED = 100.0;
+    // constantes del mapa
+    public static final double MAP_MAX_ZOOM = 8.0;
+    public static final double MAP_ZOOM_STEP = 1.2;
     //barra de energia del jugador y del bot
     public static final int MAX_PLAYER_ENERGY = 20;
     public static final int MAX_BOT_ENERGY = 10;
