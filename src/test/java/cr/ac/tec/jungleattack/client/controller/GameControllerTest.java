@@ -137,7 +137,7 @@ class GameControllerTest {
     }
 
     @Test
-    void rejectsHiddenSelectionButAllowsMovementIntoFogWithoutAttackingHiddenAnimals() throws Exception {
+    void rejectsHiddenSelectionButAllowsMovementFiftyPixelsIntoFogWithoutAttackingHiddenAnimals() throws Exception {
         SwingUtilities.invokeAndWait(() -> {
             MapPanel view = new MapPanel(CACHE);
             view.setSize(600, 900);
@@ -152,14 +152,16 @@ class GameControllerTest {
             click(view, 300, 300, MouseEvent.BUTTON1, false);
             click(view, 320, 300, MouseEvent.BUTTON3, false);
             assertTrue(messages.isEmpty());
-            click(view, 900, 300, MouseEvent.BUTTON1, false);
+            click(view, 672, 316, MouseEvent.BUTTON1, false);
             assertEquals("Selecciona animales dentro de la zona visible", status(view).getText());
-            click(view, 900, 300, MouseEvent.BUTTON3, false);
+            click(view, 672, 316, MouseEvent.BUTTON3, false);
             assertEquals(1, messages.size());
             var command = JsonParser.parseString(messages.getFirst()).getAsJsonObject();
             assertEquals("MOVE_ANIMALS", command.get("type").getAsString(),
                     "Un enemigo oculto no se convierte en objetivo de ataque");
-            assertEquals("[1]", command.getAsJsonObject("payload").get("animalIds").toString());
+            assertEquals(JsonParser.parseString("""
+                    {"animalIds":[1],"targetX":672,"targetY":316}
+                    """), command.getAsJsonObject("payload"));
             view.dispatchEvent(new MouseEvent(view, MouseEvent.MOUSE_CLICKED, 0, 0,
                     100, 10, 1, false, MouseEvent.BUTTON3));
             assertEquals(1, messages.size());
@@ -186,7 +188,7 @@ class GameControllerTest {
             view.paint(graphics);
             graphics.dispose();
             assertEquals(UIConstants.ANIMAL_SELECTION_COLOR.getRGB(),
-                    image.getRGB((int) ((400 + UIConstants.ANIMAL_CLICK_RADIUS) / 2), 200));
+                    image.getRGB((int) ((400 + UIConstants.ANIMAL_SELECTION_RADIUS) / 2), 200));
             controller.updateState(List.of(new ClickableAnimal(1, 400, 400, false)),
                     OTHERS, ZONES, "Playa Conchal");
             assertEquals("Animales seleccionados: 0", status(view).getText());
@@ -241,18 +243,19 @@ class GameControllerTest {
     }
 
     @Test
-    void animalsUseTwentyFourMapUnitsAsClickRadius() throws Exception {
+    void animalsUseSixteenMapUnitsAsClickRadius() throws Exception {
         SwingUtilities.invokeAndWait(() -> {
             MapPanel view = new MapPanel(CACHE);
             view.setSize(1200, 896);
             GameController controller = new GameController(view);
             controller.updateState(List.of(new ClickableAnimal(1, 300, 300, true)),
                     List.of(), ZONES, "Playa Conchal");
-            assertEquals(48, UIConstants.TEST_ANIMAL_SIZE);
-            assertEquals(24.0, UIConstants.ANIMAL_CLICK_RADIUS);
-            click(view, 324, 300, MouseEvent.BUTTON1, false);
+            assertEquals(32, UIConstants.TEST_ANIMAL_SIZE);
+            assertEquals(16.0, UIConstants.ANIMAL_CLICK_RADIUS);
+            assertEquals(12.0, UIConstants.ANIMAL_SELECTION_RADIUS);
+            click(view, 316, 300, MouseEvent.BUTTON1, false);
             assertEquals("Animales seleccionados: 1", status(view).getText());
-            click(view, 326, 300, MouseEvent.BUTTON1, false);
+            click(view, 318, 300, MouseEvent.BUTTON1, false);
             assertEquals("Animales seleccionados: 0", status(view).getText());
             view.removeNotify();
         });

@@ -167,9 +167,9 @@ Un error del recurso se informa por stderr y el mapa sigue disponible.
 Las conexiones visibles muestran el mono en reposo al inicio de la conexion.
 Usa `getAnimation("mono").idleImage()` sin modificar la imagen del cache.
 El centro de su lienzo coincide con el primer punto; `TEST_ANIMAL_SIZE`
-define el lado mayor en unidades del mapa (48), conservando la proporcion.
-La barra mide 36 x 5 unidades y se separa 4 unidades del sprite.
-El radio de clic y del aro de seleccion es 24; el aro tiene grosor 2.
+define el lado mayor en unidades del mapa (32), conservando la proporcion.
+La barra mide 28 x 5 unidades y se separa 4 unidades del sprite.
+El radio de clic es 16; el aro amarillo de seleccion tiene radio 12 y grosor 2.
 El animal se dibuja sobre el resaltado y comparte la escala del mapa.
 Si falta la animacion, se informa por stderr y se conserva el mapa.
 Sobre el mono visible se dibuja una barra de energia. Por ahora muestra

@@ -530,7 +530,7 @@ public class MapPanel extends JPanel {
         graphics2D.setColor(UIConstants.ANIMAL_SELECTION_COLOR);
         graphics2D.setStroke(new BasicStroke(UIConstants.ANIMAL_SELECTION_WIDTH));
         for (ClickableAnimal animal : selectedAnimals) {
-            double radius = UIConstants.ANIMAL_CLICK_RADIUS;
+            double radius = UIConstants.ANIMAL_SELECTION_RADIUS;
             graphics2D.draw(new Ellipse2D.Double(animal.x() - radius, animal.y() - radius,
                     radius * 2, radius * 2));
         }
