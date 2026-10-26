@@ -449,7 +449,10 @@ class ClientPanelTest {
             BufferedImage removed = paint(map);
             assertTrue(differs(initial, removed, 450, 400));
             assertNotEquals(initial.getRGB(345, 280), removed.getRGB(345, 280));
-            assertNotEquals(initial.getRGB(300, 296), removed.getRGB(300, 296));
+            int energyY = 327 - cr.ac.tec.jungleattack.client.config.UIConstants.TEST_ANIMAL_SIZE / 2
+                    - cr.ac.tec.jungleattack.client.config.UIConstants.ENERGY_BAR_GAP
+                    - cr.ac.tec.jungleattack.client.config.UIConstants.ENERGY_BAR_HEIGHT + 2;
+            assertNotEquals(initial.getRGB(300, energyY), removed.getRGB(300, energyY));
             payload.add("visibleZones", new com.google.gson.JsonArray());
             payload.add("selectedZone", JsonNull.INSTANCE);
             map.showSnapshot(snapshot(message));

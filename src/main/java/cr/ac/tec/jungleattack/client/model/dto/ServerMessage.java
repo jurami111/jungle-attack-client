@@ -38,7 +38,14 @@ public record ServerMessage(String type, Payload payload) {
     }
 
     // bot no se envia para los animales propios; no se sustituye su ausencia por false.
-    public record Animal(int id, String species, int x, int y, int energy, boolean alive, Boolean bot) {
+    public record Animal(int id, String species, int x, int y, int energy, boolean alive, Boolean bot,
+            Attack attack) {
+        public Animal(int id, String species, int x, int y, int energy, boolean alive, Boolean bot) {
+            this(id, species, x, y, energy, alive, bot, null);
+        }
+    }
+
+    public record Attack(int sequence, int targetX, int targetY) {
     }
 
     public record Zone(String name, int centerX, int centerY) {

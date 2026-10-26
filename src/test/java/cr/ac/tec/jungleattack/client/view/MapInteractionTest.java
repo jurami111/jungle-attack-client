@@ -141,8 +141,9 @@ class MapInteractionTest {
                 placement.translate(-sprite.getWidth() / 2.0, -sprite.getHeight() / 2.0);
                 graphics.drawImage(sprite, placement, null);
                 graphics.dispose();
-                for (int y = 378; y <= 422; y++) {
-                    for (int x = 378; x <= 422; x++) {
+                int radius = UIConstants.TEST_ANIMAL_SIZE / 2;
+                for (int y = 400 - radius; y <= 400 + radius; y++) {
+                    for (int x = 400 - radius; x <= 400 + radius; x++) {
                         assertEquals(expected.getRGB(x, y), actual.getRGB(x, y),
                                 species + " direccion " + direction[0] + "," + direction[1]);
                     }

@@ -44,6 +44,12 @@ Los cuadros de animacion cambian al detectar desplazamiento entre snapshots;
 las posiciones y los clics usan las coordenadas recibidas, sin predecir rutas.
 El timer grafico se detiene al terminar, desconectar o retirar el panel.
 Las tazas y banderas se dibujan con figuras de Swing; no requieren nuevos SVG.
+Los golpes confirmados por el servidor incluyen el campo opcional `attack`
+(`sequence`, `targetX`, `targetY`). Cada secuencia nueva produce una embestida
+breve y un arco de golpe hacia el objetivo, incluso si el atacante esta quieto.
+No se reutilizan cuadros de caminar como si fueran ataques ni se calcula dano
+en el cliente. Los snapshots sin ese campo siguen siendo compatibles; para ver
+los ataques hay que actualizar y reiniciar tambien el servidor.
 
 La zona visible usa el centro mas cercano entre las doce zonas de `MapZones`,
 con el mismo orden de desempate que el servidor. La niebla recorta esa region,

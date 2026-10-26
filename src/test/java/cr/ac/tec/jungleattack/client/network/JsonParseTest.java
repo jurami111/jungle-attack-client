@@ -124,6 +124,24 @@ class JsonParseTest {
         assertThrows(UnsupportedOperationException.class, () -> update.visibleZones().clear());
     }
 
+    @Test
+    void acceptsOptionalAttackEventsButRejectsMalformedEvents() throws IOException {
+        var message = JsonParser.parseString(examples().get("STATE_UPDATE")).getAsJsonObject();
+        JsonObject animal = message.getAsJsonObject("payload").getAsJsonArray("visibleAnimals")
+                .get(0).getAsJsonObject();
+        assertNull(((Snapshot) read(message.toString()).payload()).visibleAnimals().getFirst().attack());
+        animal.add("attack", JsonParser.parseString("{\"sequence\":1,\"targetX\":440,\"targetY\":400}"));
+        Attack attack = ((Snapshot) read(message.toString()).payload()).visibleAnimals().getFirst().attack();
+        assertEquals(new Attack(1, 440, 400), attack);
+        animal.getAsJsonObject("attack").addProperty("sequence", 0);
+        rejects(message.toString());
+        animal.getAsJsonObject("attack").addProperty("sequence", 1);
+        animal.getAsJsonObject("attack").addProperty("targetX", "440");
+        rejects(message.toString());
+        animal.add("attack", JsonNull.INSTANCE);
+        assertNull(((Snapshot) read(message.toString()).payload()).visibleAnimals().getFirst().attack());
+    }
+
     @ParameterizedTest
     @NullSource
     @ValueSource(strings = {"", " ", "{", "null", "[]", "{}", "true",

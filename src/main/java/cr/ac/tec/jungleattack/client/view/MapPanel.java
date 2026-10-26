@@ -25,6 +25,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.HashMap;
 import java.util.function.Consumer;
+import java.util.function.LongSupplier;
 
 import javax.swing.JButton;
 import javax.swing.JComboBox;
@@ -73,6 +74,7 @@ public class MapPanel extends JPanel {
     private boolean updatingZones;
     private boolean gameZonesActive;
     private final boolean demonstration;
+    private final LongSupplier nanoTime;
     private final SpriteCache spriteCache;
     private final Timer gameAnimationTimer;
     private ServerMessage.Snapshot snapshot;
@@ -80,7 +82,10 @@ public class MapPanel extends JPanel {
     private String visibleGameZone;
     private final Map<Integer, Double> headings = new HashMap<>();
     private final java.util.Set<Integer> movingIds = new HashSet<>();
-    private long animationStart = System.nanoTime();
+    private final Map<Integer, Long> attackStarts = new HashMap<>();
+    private final Map<Integer, ServerMessage.Attack> attacks = new HashMap<>();
+    private static final long ATTACK_DURATION_NANOS = 300_000_000L;
+    private long animationStart;
     private double zoom = 1.0;
     private double cameraOffsetX;
     private double cameraOffsetY;
@@ -90,8 +95,14 @@ public class MapPanel extends JPanel {
     }
 
     public MapPanel(SpriteCache spriteCache, boolean demonstration) {
+        this(spriteCache, demonstration, System::nanoTime);
+    }
+
+    MapPanel(SpriteCache spriteCache, boolean demonstration, LongSupplier nanoTime) {
         this.spriteCache = spriteCache;
         this.demonstration = demonstration;
+        this.nanoTime = nanoTime;
+        animationStart = nanoTime.getAsLong();
         mapImage = spriteCache.getImage("Mapa.svg");
         List<Route> loaded = new ArrayList<>(loadConnections());
         Optional<Connection> entry = loaded.stream().map(Route::connection)
@@ -199,12 +210,20 @@ public class MapPanel extends JPanel {
                 .forEach(animal -> {
                     currentIds.add(animal.id());
                     ServerMessage.Animal old = previous.get(animal.id());
+                    if (animal.alive() && animal.attack() != null
+                            && (old == null || old.attack() == null
+                                || old.attack().sequence() != animal.attack().sequence())) {
+                        attackStarts.put(animal.id(), nanoTime.getAsLong());
+                        attacks.put(animal.id(), animal.attack());
+                    }
                     if (old != null && (old.x() != animal.x() || old.y() != animal.y())) {
                         headings.put(animal.id(), Math.atan2(animal.y() - old.y(), animal.x() - old.x()));
                         movingIds.add(animal.id());
                     }
                 });
         headings.keySet().retainAll(currentIds);
+        attackStarts.keySet().retainAll(currentIds);
+        attacks.keySet().retainAll(currentIds);
         snapshot = state;
         showGameZones(state.visibleZones().stream().map(ServerMessage.Zone::name).toList(),
                 state.selectedZone() == null ? null : state.selectedZone().name());
@@ -219,8 +238,10 @@ public class MapPanel extends JPanel {
     public void clearGame() {
         snapshot = null;
         headings.clear();
+        attackStarts.clear();
+        attacks.clear();
         movingIds.clear();
-        animationStart = System.nanoTime();
+        animationStart = nanoTime.getAsLong();
         zoom = 1.0;
         cameraOffsetX = 0;
         cameraOffsetY = 0;
@@ -232,6 +253,8 @@ public class MapPanel extends JPanel {
     public void stopGameAnimation() {
         gameAnimationTimer.stop();
         movingIds.clear();
+        attackStarts.clear();
+        attacks.clear();
     }
 
     @Override
@@ -462,7 +485,7 @@ public class MapPanel extends JPanel {
         }
         SpriteAnimation sequence = animation.get();
         boolean moving = movingIds.contains(animal.id()) && snapshot.running();
-        long elapsed = (System.nanoTime() - animationStart) / 1_000_000;
+        long elapsed = (nanoTime.getAsLong() - animationStart) / 1_000_000;
         BufferedImage frame = moving
                 ? sequence.frames().get((int) (elapsed / sequence.frameDurationMs() % sequence.frames().size()))
                 : sequence.idleImage();
@@ -470,7 +493,28 @@ public class MapPanel extends JPanel {
         AffineTransform placement = new AffineTransform();
         placement.translate(animal.x(), animal.y());
         double facing = originalFacing(animal.species());
-        placement.rotate(headings.getOrDefault(animal.id(), facing) - facing);
+        double heading = headings.getOrDefault(animal.id(), facing);
+        Long attackStart = attackStarts.get(animal.id());
+        double attackProgress = attackStart == null ? 1
+                : (nanoTime.getAsLong() - attackStart) / (double) ATTACK_DURATION_NANOS;
+        boolean attacking = snapshot.running() && attackProgress < 1;
+        if (attacking) {
+            ServerMessage.Attack attack = attacks.get(animal.id());
+            heading = Math.atan2(attack.targetY() - animal.y(), attack.targetX() - animal.x());
+            double lunge = Math.sin(Math.PI * attackProgress) * 10;
+            placement.translate(Math.cos(heading) * lunge, Math.sin(heading) * lunge);
+            Graphics2D effect = (Graphics2D) graphics.create();
+            try {
+                effect.translate(animal.x(), animal.y());
+                effect.rotate(heading);
+                effect.setColor(new Color(255, 160, 30, (int) (255 * (1 - attackProgress))));
+                effect.setStroke(new BasicStroke(3));
+                effect.drawArc(5, -20, 36, 40, -70, 140);
+            } finally {
+                effect.dispose();
+            }
+        }
+        placement.rotate(heading - facing);
         placement.scale(scale, scale);
         placement.translate(-frame.getWidth() / 2.0, -frame.getHeight() / 2.0);
         graphics.drawImage(frame, placement, this);

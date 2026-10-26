@@ -122,6 +122,11 @@ public final class ServerMessageParser {
             return false;
         }
         JsonObject animal = value.getAsJsonObject();
+        if (animal.has("attack") && !animal.get("attack").isJsonNull()
+                && (!object(animal.get("attack"), "", "sequence targetX targetY", "")
+                    || animal.getAsJsonObject("attack").get("sequence").getAsInt() <= 0)) {
+            return false;
+        }
         return visible ? bool(animal.get("bot"))
                 : !animal.has("bot") || bool(animal.get("bot"));
     }
