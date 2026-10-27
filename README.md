@@ -69,6 +69,14 @@ demostracion para las pruebas existentes; la aplicacion usa
 
 ### Conexion TCP
 
+El boton `Salir` permite abandonar desde la espera, seleccion de animal o partida
+y regresar al inicio sin cerrar la ventana. Cierra la conexion de esa partida
+(el servidor cancela la partida del rival) y abre una conexion nueva para crear
+o unirse de nuevo. Mientras reconecta, los controles de inicio quedan deshabilitados;
+si falla la conexion, se informa en pantalla. Los mensajes pendientes de la conexion
+abandonada no actualizan la interfaz. La integracion registra esta accion mediante
+`ClientPanel.setLeaveHandler`; `Main` conecta el cierre y la reconexion TCP.
+
 `NetworkClient` abre TCP a `localhost:12345` y ejecuta la lectura y escritura
 fuera del hilo de Swing. Los mensajes JSON se envian en UTF-8, separados por
 saltos de linea, y cada linea recibida se entrega al panel para su parseo.

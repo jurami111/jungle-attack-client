@@ -10,6 +10,9 @@ import java.nio.charset.StandardCharsets;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
+
+import javax.swing.SwingUtilities;
 
 import cr.ac.tec.jungleattack.client.view.ClientPanel;
 
@@ -17,6 +20,7 @@ public final class NetworkClient implements AutoCloseable {
     private final ClientPanel clientPanel;
     private final BlockingQueue<String> outgoing = new LinkedBlockingQueue<>();
     private final AtomicBoolean stopped = new AtomicBoolean();
+    private volatile boolean intentionallyClosed;
     private volatile Socket socket;
     private volatile Thread readerThread;
     private volatile Thread writerThread;
@@ -42,11 +46,12 @@ public final class NetworkClient implements AutoCloseable {
                     new OutputStreamWriter(connection.getOutputStream(), StandardCharsets.UTF_8));
             writerThread = new Thread(() -> writeMessages(writer), "jungle-attack-tcp-writer");
             writerThread.start();
-            clientPanel.setMessageSender(outgoing::offer);
+            notifyPanel(panel -> panel.setMessageSender(outgoing::offer));
 
             String line;
             while (!stopped.get() && (line = reader.readLine()) != null) {
-                clientPanel.receiveServerLine(line);
+                String received = line;
+                notifyPanel(panel -> panel.receiveServerLine(received));
             }
             disconnect("el servidor cerro la conexion");
         } catch (IOException exception) {
@@ -80,7 +85,15 @@ public final class NetworkClient implements AutoCloseable {
         if (writer != null) {
             writer.interrupt();
         }
-        clientPanel.connectionClosed(reason);
+        notifyPanel(panel -> panel.connectionClosed(reason));
+    }
+
+    private void notifyPanel(Consumer<ClientPanel> notification) {
+        SwingUtilities.invokeLater(() -> {
+            if (!intentionallyClosed) {
+                notification.accept(clientPanel);
+            }
+        });
     }
 
     private void closeSocket() {
@@ -96,6 +109,7 @@ public final class NetworkClient implements AutoCloseable {
 
     @Override
     public void close() {
+        intentionallyClosed = true;
         if (stopped.compareAndSet(false, true)) {
             closeSocket();
             Thread reader = readerThread;

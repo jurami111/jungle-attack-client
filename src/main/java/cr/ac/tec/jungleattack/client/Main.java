@@ -2,6 +2,7 @@ package cr.ac.tec.jungleattack.client; // clase principal del juego, punto de en
 
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.util.concurrent.atomic.AtomicReference;
 
 import javax.swing.SwingUtilities;
 
@@ -22,15 +23,22 @@ public final class Main {
         SwingUtilities.invokeLater(() -> { // ejecuta la creación de la ventana del juego en el hilo de despacho de eventos de Swing
 
             GameWindow gameWindow = new GameWindow(spriteCache);
-            NetworkClient networkClient = new NetworkClient(gameWindow.getClientPanel());
+            AtomicReference<NetworkClient> networkClient = new AtomicReference<>(
+                    new NetworkClient(gameWindow.getClientPanel()));
+            gameWindow.getClientPanel().setLeaveHandler(() -> {
+                networkClient.get().close();
+                NetworkClient replacement = new NetworkClient(gameWindow.getClientPanel());
+                networkClient.set(replacement);
+                replacement.start();
+            });
             gameWindow.addWindowListener(new WindowAdapter() {
                 @Override
                 public void windowClosing(WindowEvent event) {
-                    networkClient.close();
+                    networkClient.get().close();
                 }
             });
             gameWindow.setVisible(true);
-            networkClient.start();
+            networkClient.get().start();
         });
     }
 }

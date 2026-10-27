@@ -83,6 +83,60 @@ class ClientPanelTest {
     }
 
     @Test
+    void leavingLobbySelectionOrGameReturnsHomeAndAllowsANewMatch() throws Exception {
+        SwingUtilities.invokeAndWait(() -> {
+            for (String phase : List.of("MATCH_CREATED", "ANIMAL_SELECTION", "GAME_STARTED")) {
+                ClientPanel panel = new ClientPanel(CACHE);
+                List<String> sent = new ArrayList<>();
+                AtomicBoolean closed = new AtomicBoolean();
+                panel.setLeaveHandler(() -> closed.set(true));
+                panel.setMessageSender(sent::add);
+                fields(panel).get(0).setText("Ana");
+                assertFalse(button(panel, "Salir").isEnabled());
+                panel.receiveServerLine(EXAMPLES.get(phase));
+                assertTrue(button(panel, "Salir").isEnabled());
+                if (phase.equals("GAME_STARTED")) {
+                    map(panel).setSize(2400, 1792);
+                    click(panel, 311, 327, MouseEvent.BUTTON1);
+                }
+                button(panel, "Salir").doClick(0);
+                assertTrue(closed.get());
+                assertEquals(GameState.Phase.DISCONNECTED, panel.getModel().phase());
+                assertNull(panel.getModel().snapshot());
+                assertEquals("", panel.getModel().code());
+                assertFalse(button(panel, "Salir").isEnabled());
+                assertFalse(button(panel, "Crear partida").isEnabled());
+                assertFalse(map(panel).isVisiblePoint(311, 327));
+                assertTrue(panel.getModel().status().contains("Reconectando"));
+                click(panel, 400, 420, MouseEvent.BUTTON3);
+                assertTrue(sent.isEmpty());
+                panel.setMessageSender(sent::add);
+                assertEquals(GameState.Phase.HOME, panel.getModel().phase());
+                assertTrue(button(panel, "Crear partida").isEnabled());
+                button(panel, "Crear partida").doClick(0);
+                assertEquals("CREATE_MATCH", JsonParser.parseString(sent.getFirst())
+                        .getAsJsonObject().get("type").getAsString());
+            }
+        });
+    }
+
+    @Test
+    void leavingReportsAReconnectionFailureAndKeepsHomeDisabled() throws Exception {
+        SwingUtilities.invokeAndWait(() -> {
+            ClientPanel panel = new ClientPanel(CACHE);
+            assertFalse(button(panel, "Salir").isEnabled());
+            panel.setLeaveHandler(() -> panel.connectionClosed("No se pudo reconectar"));
+            panel.setMessageSender(value -> {});
+            panel.receiveServerLine(EXAMPLES.get("MATCH_CREATED"));
+            button(panel, "Salir").doClick(0);
+            assertEquals(GameState.Phase.DISCONNECTED, panel.getModel().phase());
+            assertTrue(panel.getModel().status().contains("No se pudo reconectar"));
+            assertFalse(button(panel, "Crear partida").isEnabled());
+            assertFalse(button(panel, "Unirse").isEnabled());
+        });
+    }
+
+    @Test
     void fullFlowSendsExactCommandsAndUsesServerAcknowledgementsWithoutSockets() throws Exception {
         SwingUtilities.invokeAndWait(() -> {
             ClientPanel panel = new ClientPanel(CACHE);

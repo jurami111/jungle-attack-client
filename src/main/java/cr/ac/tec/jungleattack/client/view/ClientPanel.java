@@ -48,6 +48,7 @@ public final class ClientPanel extends JPanel {
     private final JLabel statistics = new JLabel();
     private final JLabel outcome = new JLabel();
     private final JButton again = new JButton("Volver al inicio");
+    private final JButton leave = new JButton("Salir");
     private final DefaultTableModel results = new DefaultTableModel(
             new String[]{"Especie", "Bots abatidos", "Bajas propias", "Cafes"}, 0) {
         @Override
@@ -58,6 +59,7 @@ public final class ClientPanel extends JPanel {
     private final MapPanel map;
     private final GameController controller;
     private Consumer<String> sender;
+    private Runnable leaveHandler;
     private boolean requestPending;
     private Snapshot renderedSnapshot;
 
@@ -96,11 +98,23 @@ public final class ClientPanel extends JPanel {
         finished.add(new JScrollPane(new JTable(results)), BorderLayout.CENTER);
         content.add(finished, "finished");
         add(content, BorderLayout.CENTER);
-        add(status, BorderLayout.SOUTH);
+        JPanel footer = new JPanel(new BorderLayout());
+        footer.add(status, BorderLayout.CENTER);
+        footer.add(leave, BorderLayout.EAST);
+        add(footer, BorderLayout.SOUTH);
 
         create.addActionListener(event -> enterMatch(true));
         join.addActionListener(event -> enterMatch(false));
         choose.addActionListener(event -> selectAnimal());
+        leave.addActionListener(event -> {
+            if (leaveHandler == null) {
+                reportError("No hay un manejador conectado para salir de la partida");
+                return;
+            }
+            setMessageSender(null);
+            model.report("Saliendo de la partida. Reconectando...");
+            leaveHandler.run();
+        });
         again.addActionListener(event -> {
             if (sender != null && model.phase() == GameState.Phase.FINISHED) {
                 requestPending = false;
@@ -122,6 +136,13 @@ public final class ClientPanel extends JPanel {
 
     public GameState getModel() {
         return model;
+    }
+
+    public void setLeaveHandler(Runnable handler) {
+        onSwing(() -> {
+            leaveHandler = handler;
+            refresh(model);
+        });
     }
 
     // La capa TCP entrega una funcion no bloqueante y avisa desconexion o errores por separado.
@@ -242,6 +263,10 @@ public final class ClientPanel extends JPanel {
 
     private void refresh(GameState state) {
         status.setText(state.status());
+        leave.setEnabled(leaveHandler != null && sender != null
+                && (state.phase() == GameState.Phase.WAITING
+                    || state.phase() == GameState.Phase.SELECTING
+                    || state.phase() == GameState.Phase.PLAYING));
         boolean home = state.phase() == GameState.Phase.HOME && sender != null && !requestPending;
         create.setEnabled(home);
         join.setEnabled(home);
