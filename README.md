@@ -1,5 +1,70 @@
 # jungle-attack-client
 
+## Especificacion y diagrama de clases
+
+La [especificacion del cliente](docs/SPEC.md) describe sus paquetes, clases,
+responsabilidades, operaciones principales, reglas de visibilidad y decisiones
+de diseno orientado a objetos. El diagrama completo editable esta en
+[docs/diagrama.mmd](docs/diagrama.mmd); el resumen Mermaid se muestra aqui:
+
+```mermaid
+classDiagram
+    class Main
+    class GameWindow
+    class ClientPanel
+    class MapPanel
+    class GameController
+    class GameState
+    class ModelObserver {
+        <<interface>>
+    }
+    class NetworkClient
+    class ServerMessageParser
+    class ServerMessage
+    class Payload {
+        <<sealed interface>>
+    }
+    class Snapshot
+    class MapZones
+    class SpriteCache
+    class Animator
+    class AutoCloseable {
+        <<interface>>
+    }
+    class JFrame {
+        <<Swing>>
+    }
+    class JPanel {
+        <<Swing>>
+    }
+    class MouseAdapter {
+        <<Swing>>
+    }
+
+    GameWindow --|> JFrame
+    ClientPanel --|> JPanel
+    MapPanel --|> JPanel
+    GameController --|> MouseAdapter
+    NetworkClient ..|> AutoCloseable
+    Main ..> GameWindow
+    Main ..> NetworkClient
+    GameWindow *-- ClientPanel
+    ClientPanel *-- GameState
+    ClientPanel *-- MapPanel
+    ClientPanel *-- GameController
+    ClientPanel *-- ServerMessageParser
+    GameState o-- ModelObserver
+    GameState --> ServerMessage
+    ServerMessage --> Payload
+    Payload <|.. Snapshot
+    ServerMessageParser --> ServerMessage
+    NetworkClient --> ClientPanel
+    GameController --> MapPanel
+    GameController ..> MapZones
+    MapPanel --> SpriteCache
+    MapPanel ..> Animator
+```
+
 ## Zoom y orientacion en el mapa
 
 La rueda del mouse sobre el mapa acerca y aleja entre el ajuste inicial (1x)
@@ -24,7 +89,7 @@ orientadas en cuatro direcciones, incluyendo la pose detenida.
 ## Cliente preparado para integrar TCP
 
 `Main` abre el flujo real: inicio, crear/unirse, espera, seleccion de animal,
-mapa y resultados. Al iniciar intenta conectarse por TCP a `localhost:12345`.
+mapa y resultados. Al iniciar intenta conectarse por TCP a `100.124.139.105:12345`.
 Si el servidor no esta disponible, la interfaz informa la desconexion.
 El cliente no simula una partida.
 
@@ -77,7 +142,7 @@ si falla la conexion, se informa en pantalla. Los mensajes pendientes de la cone
 abandonada no actualizan la interfaz. La integracion registra esta accion mediante
 `ClientPanel.setLeaveHandler`; `Main` conecta el cierre y la reconexion TCP.
 
-`NetworkClient` abre TCP a `localhost:12345` y ejecuta la lectura y escritura
+`NetworkClient` abre TCP a `100.124.139.105:12345` y ejecuta la lectura y escritura
 fuera del hilo de Swing. Los mensajes JSON se envian en UTF-8, separados por
 saltos de linea, y cada linea recibida se entrega al panel para su parseo.
 El socket se cierra al salir de la aplicacion.
@@ -362,17 +427,18 @@ Los cambios de estado no reenvian comandos y eliminan de la seleccion
 los animales muertos, ausentes o que ya no estan en la zona mostrada,
 salvo los seleccionados que estan explorando tras una orden de movimiento.
 
-Al enviar MOVE_ANIMALS, el cliente sigue al primer miembro seleccionado vivo
-del grupo. Cuando un snapshot confirma que ese animal entro en otra zona
-y la incluye en visibleZones, solicita VIEW_ZONE una sola vez para esa zona.
-La niebla cambia solo cuando otro snapshot confirma selectedZone; nunca se
-revelan enemigos, tazas ni banderas usando datos de la zona anterior.
-El explorador conserva su seleccion al cruzar para poder seguir recibiendo
+Al enviar MOVE_ANIMALS, el cliente sigue a los miembros seleccionados que
+siguen vivos. Cuando un snapshot confirma que uno entro en otra zona ocupada,
+solicita VIEW_ZONE para mostrarla. Las zonas ya seguidas durante esa orden se
+recuerdan para evitar volver a una zona donde quedaron otros exploradores. Si el
+servidor rechaza la solicitud, el cliente vuelve a intentarlo con el siguiente
+snapshot. La niebla cambia solo cuando otro snapshot confirma selectedZone;
+nunca se revelan enemigos, tazas ni banderas usando datos de la zona anterior.
+Los exploradores conservan su seleccion al cruzar para seguir recibiendo
 ordenes. Otra seleccion, un ataque, elegir una zona manualmente, terminar
 la partida o desconectarse cancela el seguimiento. Los muertos se eliminan.
-Con varios animales separados se sigue un miembro estable, no se alterna
-entre zonas en cada tick. La visibilidad no es exploracion permanente:
-se muestra una zona a la vez y el servidor decide cuales estan ocupadas.
+La visibilidad no es exploracion permanente: se muestra una zona a la vez y el
+servidor decide cuales estan ocupadas.
 
 ### API de clics de bajo nivel
 
