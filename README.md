@@ -2,34 +2,235 @@
 
 ## Especificacion y diagrama de clases
 
-La [especificacion del cliente](docs/SPEC.md) describe sus paquetes, clases,
-responsabilidades, operaciones principales, reglas de visibilidad y decisiones
-de diseno orientado a objetos. El diagrama completo editable esta en
-[docs/diagrama.mmd](docs/diagrama.mmd); el resumen Mermaid se muestra aqui:
+La [especificación del cliente](docs/SPEC.md) describe sus paquetes, clases, responsabilidades y reglas de interacción. El diagrama de clases se muestra a continuación en Mermaid; su archivo fuente está en [docs/diagrama.mmd](docs/diagrama.mmd).
 
 ```mermaid
 classDiagram
-    class Main
-    class GameWindow
-    class ClientPanel
-    class MapPanel
-    class GameController
-    class GameState
+    direction TB
+
+    %% Los tipos DTO son records anidados en ServerMessage; se muestran por separado para facilitar la lectura.
+    %% Payload es una interfaz sellada; solo los records declarados abajo la implementan.
+    class Main {
+        +main(String[] args)$ void
+    }
+    class GameWindow {
+        -ClientPanel clientPanel
+        -GameController controller
+        +getClientPanel() ClientPanel
+        +getController() GameController
+    }
+    class ClientPanel {
+        -GameState model
+        -MapPanel map
+        -GameController controller
+        -ServerMessageParser parser
+        +receiveServerLine(String) void
+        +setMessageSender(Consumer) void
+        +setLeaveHandler(Runnable) void
+    }
+    class GameController {
+        -MapPanel view
+        -Set~Integer~ selectedIds
+        -List~ClickableAnimal~ ownAnimals
+        +updateState(List, List, List, String) void
+        +mouseClicked(MouseEvent) void
+    }
+    class MapPanel {
+        -SpriteCache spriteCache
+        -Snapshot snapshot
+        -double zoom
+        +showSnapshot(Snapshot) void
+        +showSelection(List) void
+        +showGameZones(List, String) void
+        +clearGame() void
+    }
+    class GameState {
+        -Phase phase
+        -AnimalSelection selection
+        -Snapshot snapshot
+        -GameOver result
+        +apply(ServerMessage) void
+        +returnHome() void
+    }
     class ModelObserver {
         <<interface>>
+        +onStateChanged(GameState) void
     }
-    class NetworkClient
-    class ServerMessageParser
-    class ServerMessage
+    class AnimalSpecies {
+        <<enumeration>>
+        MONO
+        MARIPOSA
+        RANA
+        PEREZOSO
+        SERPIENTE
+        TORTUGA
+        YIGUIRRO
+    }
+    class ClickableAnimal {
+        <<record>>
+        +int id
+        +double x
+        +double y
+        +boolean alive
+    }
+    class MapZones {
+        +ALL$
+        +at(double x, double y)$ Optional
+        +visibleArea(String, double, double)$ Area
+    }
+    class Connection {
+        <<record>>
+        +fromZoneId
+        +toZoneId
+        +pathPoints
+        +reversed() Connection
+        +followedBy(Connection) Optional
+    }
+    class NetworkClient {
+        -ClientPanel clientPanel
+        -BlockingQueue~String~ outgoing
+        +start() void
+        +close() void
+    }
+    class ServerMessageParser {
+        +parse(String) ParseResult
+    }
+    class ParseResult {
+        <<record>>
+        +message
+        +error
+    }
+    class ServerMessage {
+        <<record>>
+        +String type
+        +Payload payload
+    }
     class Payload {
-        <<sealed interface>>
-    }
-    class Snapshot
-    class MapZones
-    class SpriteCache
-    class Animator
-    class AutoCloseable {
         <<interface>>
+    }
+    class MatchCode {
+        <<record>>
+        +String code
+    }
+    class PlayerJoined {
+        <<record>>
+        +String nickname
+    }
+    class AnimalSelection {
+        <<record>>
+        +List availableSpecies
+        +String yourSpecies
+        +String opponentSpecies
+    }
+    class Snapshot {
+        <<record>>
+        +String matchCode
+        +boolean running
+        +Pack ownPack
+        +List ownAnimals
+        +List visibleZones
+        +Zone selectedZone
+        +List visibleAnimals
+        +List visibleCoffeeCups
+        +List visibleFlags
+    }
+    class Pack {
+        <<record>>
+        +String species
+        +int damageCapacity
+        +int botsKilled
+        +int animalsEliminated
+        +int cupsConsumed
+    }
+    class Animal {
+        <<record>>
+        +int id
+        +String species
+        +int x
+        +int y
+        +int energy
+        +boolean alive
+        +Boolean bot
+        +Attack attack
+    }
+    class Attack {
+        <<record>>
+        +int sequence
+        +int targetX
+        +int targetY
+    }
+    class Zone {
+        <<record>>
+        +String name
+        +int centerX
+        +int centerY
+    }
+    class CoffeeCup {
+        <<record>>
+        +int x
+        +int y
+    }
+    class Flag {
+        <<record>>
+        +String owner
+        +int x
+        +int y
+        +String color
+        +boolean captured
+    }
+    class GameOver {
+        <<record>>
+        +String winner
+        +int durationSeconds
+        +List packs
+    }
+    class PackSummary {
+        <<record>>
+        +String species
+        +int botsKilled
+        +int animalsEliminated
+        +int cupsConsumed
+    }
+    class MatchCancelled {
+        <<record>>
+        +String reason
+    }
+    class ServerError {
+        <<record>>
+        +String message
+    }
+    class SpriteCache {
+        +getImage(String) Optional
+        +getAnimation(String) Optional
+        +getLoadErrors() Map
+    }
+    class SpriteAnimation {
+        <<record>>
+        +idleImage
+        +frames
+        +frameDurationMs
+    }
+    class Animator {
+        -Timer timer
+        -List path
+        +startAtSpeed(List, SpriteAnimation, double) boolean
+        +stop() void
+    }
+    class EnergyBar {
+        +paint(Graphics2D, double, double, int, int)$ void
+    }
+    class FogOfWar {
+        +paint(Graphics2D, Rectangle2D, Rectangle2D)$ void
+    }
+    class UIConstants {
+        <<constants>>
+        +WINDOW_TITLE$
+        +WINDOW_WIDTH$
+        +WINDOW_HEIGHT$
+        +MAP_MAX_ZOOM$
+        +MAX_PLAYER_ENERGY$
+        +MAX_BOT_ENERGY$
+        +FOG_COLOR$
     }
     class JFrame {
         <<Swing>>
@@ -40,29 +241,71 @@ classDiagram
     class MouseAdapter {
         <<Swing>>
     }
+    class AutoCloseable {
+        <<interface>>
+    }
+    class Runnable {
+        <<interface>>
+    }
+    class Consumer {
+        <<interface>>
+    }
 
+    Main ..> GameWindow : starts
+    Main ..> NetworkClient : starts and replaces connection
+    Main ..> SpriteCache : creates shared cache
     GameWindow --|> JFrame
-    ClientPanel --|> JPanel
-    MapPanel --|> JPanel
-    GameController --|> MouseAdapter
-    NetworkClient ..|> AutoCloseable
-    Main ..> GameWindow
-    Main ..> NetworkClient
     GameWindow *-- ClientPanel
+    GameWindow --> GameController
+    GameWindow ..> UIConstants : window title and size
+    ClientPanel --|> JPanel
     ClientPanel *-- GameState
     ClientPanel *-- MapPanel
     ClientPanel *-- GameController
     ClientPanel *-- ServerMessageParser
-    GameState o-- ModelObserver
-    GameState --> ServerMessage
-    ServerMessage --> Payload
+    ClientPanel ..> AnimalSpecies : validates received species
+    ClientPanel ..> Runnable : leave and reconnect callback
+    ClientPanel ..> Consumer : outbound message callback
+    ClientPanel ..> Snapshot : displays match results
+    GameController --|> MouseAdapter
+    GameController --> MapPanel : handles map interaction
+    GameController ..> ClickableAnimal : selection and targets
+    GameController ..> MapZones : resolves occupied zones
+    GameController ..> Consumer : sends commands
+    GameState o-- ModelObserver : notifies state changes
+    GameState --> ServerMessage : applies server responses
+    GameState --> AnimalSelection : selection state
+    GameState --> Snapshot : current match state
+    GameState --> GameOver : final result
+    MapPanel --> SpriteCache : loads visual assets
+    MapPanel --> Snapshot : renders server state
+    MapPanel ..> MapZones : calculates visible area
+    MapPanel ..> Connection : demonstration routes
+    MapPanel ..> EnergyBar : paints animal energy
+    MapPanel ..> FogOfWar : paints hidden areas
+    MapPanel ..> UIConstants : appearance and zoom
+    MapPanel *-- Animator : demonstration animation
+    Animator --> SpriteAnimation : animated frames
+    NetworkClient ..|> AutoCloseable
+    NetworkClient --> ClientPanel : delivers received lines
+    ServerMessageParser --> ParseResult : returns parse result
+    ParseResult --> ServerMessage : validated message
+    ServerMessage *-- Payload : payload
+    Payload <|.. MatchCode
+    Payload <|.. PlayerJoined
+    Payload <|.. AnimalSelection
     Payload <|.. Snapshot
-    ServerMessageParser --> ServerMessage
-    NetworkClient --> ClientPanel
-    GameController --> MapPanel
-    GameController ..> MapZones
-    MapPanel --> SpriteCache
-    MapPanel ..> Animator
+    Payload <|.. GameOver
+    Payload <|.. MatchCancelled
+    Payload <|.. ServerError
+    Snapshot *-- Pack : ownPack
+    Snapshot *-- "0..*" Animal : own and visible animals
+    Snapshot *-- "0..*" Zone : visible zones
+    Snapshot --> Zone : selected zone
+    Snapshot *-- "0..*" CoffeeCup : visible cups
+    Snapshot *-- "0..*" Flag : visible flags
+    Animal --> Attack : optional attack animation
+    GameOver *-- "0..*" PackSummary : match statistics
 ```
 
 ## Zoom y orientacion en el mapa

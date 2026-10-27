@@ -1,236 +1,56 @@
 classDiagram
     direction TB
 
-    %% Punto de entrada y configuracion
+    %% Los tipos DTO son records anidados en ServerMessage; se muestran por separado para facilitar la lectura.
+    %% Payload es una interfaz sellada; solo los records declarados abajo la implementan.
     class Main {
         +main(String[] args)$ void
     }
-    class UIConstants {
-        <<constants>>
-        +WINDOW_TITLE$
-        +WINDOW_WIDTH$
-        +WINDOW_HEIGHT$
-        +MAP_MAX_ZOOM$
-        +MAP_ZOOM_STEP$
-        +ANIMATION_DELAY_MS$
-        +TEST_PATH_COLOR$
-        +TEST_PATH_WIDTH$
-        +TEST_ANIMAL_SIZE$
-        +TEST_MOVEMENT_SPEED$
-        +MAX_PLAYER_ENERGY$
-        +MAX_BOT_ENERGY$
-        +ENERGY_BAR_WIDTH$
-        +ENERGY_BAR_HEIGHT$
-        +ENERGY_BAR_GAP$
-        +ENERGY_BAR_BORDER_COLOR$
-        +ENERGY_BAR_EMPTY_COLOR$
-        +ENERGY_BAR_FILL_COLOR$
-        +ANIMAL_CLICK_RADIUS$
-        +ANIMAL_SELECTION_RADIUS$
-        +ANIMAL_SELECTION_COLOR$
-        +ANIMAL_SELECTION_WIDTH$
-        +FOG_COLOR$
-        +FOG_EDGE_WIDTH$
-        +FOG_EDGE_STEPS$
-        +FOG_EDGE_ARC$
-    }
     class GameWindow {
-        -GameController controller
         -ClientPanel clientPanel
-        +GameWindow(SpriteCache)
-        +getController() GameController
+        -GameController controller
         +getClientPanel() ClientPanel
+        +getController() GameController
     }
-    class MainWindowClosingAdapter {
-        <<anonymous_class>>
-    }
-
-    %% Vista Swing
     class ClientPanel {
         -GameState model
-        -ServerMessageParser parser
-        -Gson gson
         -MapPanel map
         -GameController controller
-        -Consumer~String~ sender
-        -Runnable leaveHandler
-        -boolean requestPending
-        -Snapshot renderedSnapshot
-        +ClientPanel(SpriteCache)
-        +getController() GameController
-        +getModel() GameState
-        +setLeaveHandler(Runnable) void
-        +setMessageSender(Consumer) void
+        -ServerMessageParser parser
         +receiveServerLine(String) void
-        +connectionClosed(String) void
-        +reportConnectionError(String) void
+        +setMessageSender(Consumer) void
+        +setLeaveHandler(Runnable) void
     }
-    class ClientResultsModel {
-        <<anonymous_class>>
+    class GameController {
+        -MapPanel view
+        -Set~Integer~ selectedIds
+        -List~ClickableAnimal~ ownAnimals
+        +updateState(List, List, List, String) void
+        +mouseClicked(MouseEvent) void
     }
     class MapPanel {
         -SpriteCache spriteCache
         -Snapshot snapshot
-        -boolean demonstration
-        -Animator animator
-        -List~Route~ routes
-        -List~Route~ reversedRoutes
-        -List~ZoneArea~ zones
-        -Area visibleGameArea
         -double zoom
-        -double cameraOffsetX
-        -double cameraOffsetY
-        +MapPanel(SpriteCache)
-        +MapPanel(SpriteCache, boolean)
         +showSnapshot(Snapshot) void
-        +clearGame() void
-        +stopGameAnimation() void
-        +setZoneRequestHandler(Consumer) void
-        +hasZone(String) boolean
-        +showGameZones(List, String) void
-        +isVisiblePoint(double, double) boolean
-        +toMapPoint(Point) Optional
         +showSelection(List) void
-        +showInteractionStatus(String) void
+        +showGameZones(List, String) void
+        +clearGame() void
     }
-    class MapPanelRoute {
-        <<private_record>>
-        +label
-        +connection
-        +path
-    }
-    class MapPanelZoneArea {
-        <<private_record>>
-        +id
-        +name
-        +bounds
-    }
-    class MapPanelZoneMapDefinition {
-        <<private_record>>
-        +zones
-    }
-    class MapPanelZoneDefinition {
-        <<private_record>>
-        +id
-        +name
-        +x
-        +y
-        +width
-        +height
-    }
-    class MapPanelMapDefinition {
-        <<private_record>>
-        +connections
-    }
-    class MapPanelPathDefinition {
-        <<private_record>>
-        +label
-        +fromZoneId
-        +toZoneId
-        +points
-        +hiddenSegments
-    }
-    class MapPanelPathPoint {
-        <<private_record>>
-        +x
-        +y
-    }
-
-    %% Controladores
-    class GameController {
-        -MapPanel view
-        -Gson gson
-        -Set~Integer~ selectedIds
-        -List~ClickableAnimal~ ownAnimals
-        -List~ClickableAnimal~ visibleAnimals
-        -List~String~ visibleZones
-        -String selectedZone
-        -Set~Integer~ exploringIds
-        -Set~String~ followedZones
-        -String requestedFollowZone
-        -Consumer~String~ messageSender
-        +GameController(MapPanel)
-        +setMessageSender(Consumer) void
-        +setInteractionEnabled(boolean) void
-        +updateState(List, List, List, String) void
-        +mouseClicked(MouseEvent) void
-        +onAutomaticZoneRequestRejected() void
-    }
-    class GameControllerCommand {
-        <<private_generic_record>>
-        +type
-        +payload
-    }
-    class GameControllerMovePayload {
-        <<private_record>>
-        +animalIds
-        +targetX
-        +targetY
-    }
-    class GameControllerAttackPayload {
-        <<private_record>>
-        +animalIds
-        +targetId
-    }
-    class GameControllerZonePayload {
-        <<private_record>>
-        +zone
-    }
-    class Animator {
-        +DOWN$
-        -Timer timer
-        -Consumer~State~ onUpdate
-        -LongSupplier clock
-        -List~Point2D~ path
-        -SpriteAnimation animation
-        +Animator(Consumer)
-        +start(Point2D, Point2D, SpriteAnimation, int) boolean
-        +start(List, SpriteAnimation, int) boolean
-        +startAtSpeed(List, SpriteAnimation, double) boolean
-        +startAtSpeed(Connection, SpriteAnimation, double) boolean
-        +stop() void
-    }
-    class AnimatorState {
-        <<record>>
-        +x
-        +y
-        +image
-        +moving
-        +visible
-        +heading
-    }
-
-    %% Modelo de interfaz y mapa
     class GameState {
-        -List~ModelObserver~ observers
         -Phase phase
-        -String code
-        -String opponent
         -AnimalSelection selection
         -Snapshot snapshot
         -GameOver result
-        +addObserver(ModelObserver) void
-        +connected() void
-        +disconnected(String) void
-        +report(String) void
-        +returnHome() void
         +apply(ServerMessage) void
-    }
-    class GameStatePhase {
-        <<nested_enum>>
-        DISCONNECTED
-        HOME
-        WAITING
-        SELECTING
-        PLAYING
-        FINISHED
+        +returnHome() void
     }
     class ModelObserver {
-        <<functional_interface>>
+        <<interface>>
         +onStateChanged(GameState) void
     }
     class AnimalSpecies {
-        <<enum>>
+        <<enumeration>>
         MONO
         MARIPOSA
         RANA
@@ -238,202 +58,144 @@ classDiagram
         SERPIENTE
         TORTUGA
         YIGUIRRO
-        +spriteName() String
-        +find(String)$ Optional
     }
     class ClickableAnimal {
         <<record>>
-        +id
-        +x
-        +y
-        +alive
+        +int id
+        +double x
+        +double y
+        +boolean alive
     }
-    class Zone {
-        <<record>>
-        +id
-        +name
-        +position
+    class MapZones {
+        +ALL$
+        +at(double x, double y)$ Optional
+        +visibleArea(String, double, double)$ Area
     }
     class Connection {
         <<record>>
         +fromZoneId
         +toZoneId
         +pathPoints
-        +hiddenSegments
         +reversed() Connection
         +followedBy(Connection) Optional
     }
-    class MapZones {
-        <<utility>>
-        +ALL$
-        +at(double, double)$ Optional
-        +visibleArea(String, double, double)$ Area
-    }
-
-    %% DTO del protocolo; aliases identifican los records anidados en ServerMessage
-    class ServerMessage {
-        <<record>>
-        +type
-        +payload
-    }
-    class ServerMessagePayload {
-        <<nested_sealed_interface>>
-    }
-    class DTO_MatchCode {
-        <<record>>
-        +code
-    }
-    class DTO_PlayerJoined {
-        <<record>>
-        +nickname
-    }
-    class DTO_AnimalSelection {
-        <<record>>
-        +availableSpecies
-        +yourSpecies
-        +opponentSpecies
-    }
-    class DTO_Snapshot {
-        <<record>>
-        +matchCode
-        +running
-        +ownPack
-        +ownFlagColor
-        +ownAnimals
-        +visibleZones
-        +selectedZone
-        +visibleAnimals
-        +visibleCoffeeCups
-        +visibleFlags
-    }
-    class DTO_Pack {
-        <<record>>
-        +species
-        +damageCapacity
-        +botsKilled
-        +animalsEliminated
-        +cupsConsumed
-    }
-    class DTO_Animal {
-        <<record>>
-        +id
-        +species
-        +x
-        +y
-        +energy
-        +alive
-        +bot
-        +attack
-    }
-    class DTO_Attack {
-        <<record>>
-        +sequence
-        +targetX
-        +targetY
-    }
-    class DTO_Zone {
-        <<record>>
-        +name
-        +centerX
-        +centerY
-    }
-    class DTO_CoffeeCup {
-        <<record>>
-        +x
-        +y
-    }
-    class DTO_Flag {
-        <<record>>
-        +owner
-        +x
-        +y
-        +color
-        +captured
-    }
-    class DTO_GameOver {
-        <<record>>
-        +winner
-        +durationSeconds
-        +packs
-    }
-    class DTO_PackSummary {
-        <<record>>
-        +species
-        +botsKilled
-        +animalsEliminated
-        +cupsConsumed
-    }
-    class DTO_MatchCancelled {
-        <<record>>
-        +reason
-    }
-    class DTO_ServerError {
-        <<record>>
-        +message
-    }
-
-    %% Red y validacion del protocolo
     class NetworkClient {
         -ClientPanel clientPanel
         -BlockingQueue~String~ outgoing
-        -AtomicBoolean stopped
-        -boolean intentionallyClosed
-        -Socket socket
-        -Thread readerThread
-        -Thread writerThread
-        +NetworkClient(ClientPanel)
         +start() void
         +close() void
     }
     class ServerMessageParser {
-        -Gson gson
         +parse(String) ParseResult
     }
     class ParseResult {
-        <<nested_record>>
+        <<record>>
         +message
         +error
     }
-
-    %% Recursos y utilidades de dibujo
+    class ServerMessage {
+        <<record>>
+        +String type
+        +Payload payload
+    }
+    class Payload {
+        <<interface>>
+    }
+    class MatchCode {
+        <<record>>
+        +String code
+    }
+    class PlayerJoined {
+        <<record>>
+        +String nickname
+    }
+    class AnimalSelection {
+        <<record>>
+        +List availableSpecies
+        +String yourSpecies
+        +String opponentSpecies
+    }
+    class Snapshot {
+        <<record>>
+        +String matchCode
+        +boolean running
+        +Pack ownPack
+        +List ownAnimals
+        +List visibleZones
+        +Zone selectedZone
+        +List visibleAnimals
+        +List visibleCoffeeCups
+        +List visibleFlags
+    }
+    class Pack {
+        <<record>>
+        +String species
+        +int damageCapacity
+        +int botsKilled
+        +int animalsEliminated
+        +int cupsConsumed
+    }
+    class Animal {
+        <<record>>
+        +int id
+        +String species
+        +int x
+        +int y
+        +int energy
+        +boolean alive
+        +Boolean bot
+        +Attack attack
+    }
+    class Attack {
+        <<record>>
+        +int sequence
+        +int targetX
+        +int targetY
+    }
+    class Zone {
+        <<record>>
+        +String name
+        +int centerX
+        +int centerY
+    }
+    class CoffeeCup {
+        <<record>>
+        +int x
+        +int y
+    }
+    class Flag {
+        <<record>>
+        +String owner
+        +int x
+        +int y
+        +String color
+        +boolean captured
+    }
+    class GameOver {
+        <<record>>
+        +String winner
+        +int durationSeconds
+        +List packs
+    }
+    class PackSummary {
+        <<record>>
+        +String species
+        +int botsKilled
+        +int animalsEliminated
+        +int cupsConsumed
+    }
+    class MatchCancelled {
+        <<record>>
+        +String reason
+    }
+    class ServerError {
+        <<record>>
+        +String message
+    }
     class SpriteCache {
-        +ASSET_NAMES$
-        -Map~String, BufferedImage~ images
-        -Map~String, String~ loadErrors
-        -Map~String, SpriteAnimation~ animations
-        +SpriteCache()
         +getImage(String) Optional
-        +getLoadErrors() Map
         +getAnimation(String) Optional
-    }
-    class SpriteCacheAnimationManifest {
-        <<private_record>>
-        +canvasWidth
-        +canvasHeight
-        +animals
-    }
-    class SpriteCacheAnimalDefinition {
-        <<private_record>>
-        +id
-        +idleFrame
-        +frameDurationMs
-        +sequence
-        +frames
-    }
-    class SpriteCacheFrameDefinition {
-        <<private_record>>
-        +file
-    }
-    class SpriteCacheSvgLoadResult {
-        <<private_record>>
-        +image
-        +error
-    }
-    class SpriteCacheBufferedImageTranscoder {
-        <<private_static_class>>
-        -BufferedImage image
-        +createImage(int, int) BufferedImage
-        +writeImage(BufferedImage, TranscoderOutput) void
+        +getLoadErrors() Map
     }
     class SpriteAnimation {
         <<record>>
@@ -441,16 +203,28 @@ classDiagram
         +frames
         +frameDurationMs
     }
+    class Animator {
+        -Timer timer
+        -List path
+        +startAtSpeed(List, SpriteAnimation, double) boolean
+        +stop() void
+    }
     class EnergyBar {
-        <<utility>>
         +paint(Graphics2D, double, double, int, int)$ void
     }
     class FogOfWar {
-        <<utility>>
         +paint(Graphics2D, Rectangle2D, Rectangle2D)$ void
     }
-
-    %% Tipos externos usados en relaciones principales
+    class UIConstants {
+        <<constants>>
+        +WINDOW_TITLE$
+        +WINDOW_WIDTH$
+        +WINDOW_HEIGHT$
+        +MAP_MAX_ZOOM$
+        +MAX_PLAYER_ENERGY$
+        +MAX_BOT_ENERGY$
+        +FOG_COLOR$
+    }
     class JFrame {
         <<Swing>>
     }
@@ -460,30 +234,6 @@ classDiagram
     class MouseAdapter {
         <<Swing>>
     }
-    class DefaultTableModel {
-        <<Swing>>
-    }
-    class JButton {
-        <<Swing>>
-    }
-    class JLabel {
-        <<Swing>>
-    }
-    class JTextField {
-        <<Swing>>
-    }
-    class JComboBox {
-        <<Swing>>
-    }
-    class JTable {
-        <<Swing>>
-    }
-    class WindowAdapter {
-        <<AWT>>
-    }
-    class Gson {
-        <<external_JSON_library>>
-    }
     class AutoCloseable {
         <<interface>>
     }
@@ -491,222 +241,61 @@ classDiagram
         <<interface>>
     }
     class Consumer {
-        <<Java_functional_interface>>
-    }
-    class Socket {
-        <<Java_networking>>
-    }
-    class ImageTranscoder {
-        <<Apache_Batik>>
-    }
-    class Timer {
-        <<Swing>>
-    }
-    class Path2D {
-        <<Java2D>>
-    }
-    class Rectangle2D {
-        <<Java2D>>
-    }
-    class Area {
-        <<Java2D>>
-    }
-    class Point {
-        <<AWT>>
-    }
-    class Point2D {
-        <<Java2D>>
-    }
-    class MouseEvent {
-        <<AWT>>
-    }
-    class AtomicReference {
-        <<Java_concurrency>>
-    }
-    class BlockingQueue {
-        <<Java_concurrency>>
-    }
-    class AtomicBoolean {
-        <<Java_concurrency>>
-    }
-    class Thread {
-        <<Java_concurrency>>
-    }
-    class SwingUtilities {
-        <<Swing>>
-    }
-    class Graphics2D {
-        <<Java2D>>
-    }
-    class Color {
-        <<AWT>>
-    }
-    class AffineTransform {
-        <<Java2D>>
-    }
-    class Ellipse2D {
-        <<Java2D>>
-    }
-    class RoundRectangle2D {
-        <<Java2D>>
-    }
-    class BufferedImage {
-        <<Java2D>>
+        <<interface>>
     }
 
-    %% Herencia e implementaciones
-    GameWindow --|> JFrame
-    MainWindowClosingAdapter --|> WindowAdapter
-    ClientPanel --|> JPanel
-    MapPanel --|> JPanel
-    GameController --|> MouseAdapter
-    NetworkClient ..|> AutoCloseable
-    SpriteCacheBufferedImageTranscoder --|> ImageTranscoder
-    ClientResultsModel --|> DefaultTableModel
-
-    %% Arranque, ventana y ciclo de conexion
+    Main ..> GameWindow : starts
+    Main ..> NetworkClient : starts and replaces connection
     Main ..> SpriteCache : creates shared cache
-    Main ..> GameWindow : creates window
-    Main ..> NetworkClient : starts, closes and replaces connection
-    Main ..> MainWindowClosingAdapter : closes connection on window exit
-    Main ..> AtomicReference : retains replaceable connection
-    Main ..> SwingUtilities : creates window on event thread
-    GameWindow *-- ClientPanel : content pane
-    GameWindow --> GameController : exposes panel controller
+    GameWindow --|> JFrame
+    GameWindow *-- ClientPanel
+    GameWindow --> GameController
+    GameWindow ..> UIConstants : window title and size
+    ClientPanel --|> JPanel
+    ClientPanel *-- GameState
+    ClientPanel *-- MapPanel
+    ClientPanel *-- GameController
+    ClientPanel *-- ServerMessageParser
+    ClientPanel ..> AnimalSpecies : validates received species
     ClientPanel ..> Runnable : leave and reconnect callback
     ClientPanel ..> Consumer : outbound message callback
-    NetworkClient --> ClientPanel : delivers lines and connection state
-    NetworkClient --> Socket : TCP connection
-    NetworkClient ..> BlockingQueue : outgoing messages
-    NetworkClient ..> AtomicBoolean : stop coordination
-    NetworkClient ..> Thread : reader and writer
-    NetworkClient ..> SwingUtilities : delivers callbacks on event thread
-    NetworkClient ..> Consumer : panel notification callback
-
-    %% Vista, controlador y modelo
-    ClientPanel *-- GameState : observed UI state
-    ClientPanel *-- ServerMessageParser : validates inbound JSON
-    ClientPanel *-- MapPanel : displays selected screen
-    ClientPanel *-- GameController : routes game interactions
-    ClientPanel *-- ClientResultsModel : read-only results table model
-    ClientPanel o-- "0..*" JPanel : screen cards and layout containers
-    ClientPanel o-- "0..*" JButton : create, join, choose, leave and return
-    ClientPanel o-- "0..*" JLabel : status, statistics and headings
-    ClientPanel o-- "0..*" JTextField : nickname and match code
-    ClientPanel o-- JComboBox : species selection
-    ClientPanel ..> JTable : displays result rows
-    ClientPanel ..> DTO_Snapshot : renders current snapshot
-    ClientPanel ..> ClickableAnimal : projects animals for hit testing
-    ClientPanel ..> Gson : serializes client requests
-    ClientPanel ..> ModelObserver : registers state refresh callback
-    GameState o-- "0..*" ModelObserver : notifies observers
-    ModelObserver ..> GameState : callback parameter
-    GameState --> GameStatePhase : current phase
-    GameState --> DTO_AnimalSelection : selection state
-    GameState --> DTO_Snapshot : current match state
-    GameState --> DTO_GameOver : result state
-    GameState ..> ServerMessage : applies inbound message
-    GameController --> MapPanel : reads clicks and updates selection
-    GameController ..> MouseEvent : interprets player clicks
-    GameController o-- "0..*" ClickableAnimal : own and visible projections
-    GameController ..> MapZones : resolves occupied map zones
-    GameController ..> GameControllerCommand : serializes outbound command
-    GameControllerCommand *-- GameControllerMovePayload
-    GameControllerCommand *-- GameControllerAttackPayload
-    GameControllerCommand *-- GameControllerZonePayload
-    GameController ..> Consumer : sends serialized JSON
-    GameController ..> Gson : serializes command envelopes
-
-    %% Protocol payload hierarchy and containment
-    ServerMessage *-- ServerMessagePayload : payload field
-    ServerMessageParser --> ParseResult : returns parse result
-    ServerMessageParser ..> Gson : strict JSON parsing
-    ParseResult --> ServerMessage : optional parsed message
-    ServerMessagePayload <|.. DTO_MatchCode
-    ServerMessagePayload <|.. DTO_PlayerJoined
-    ServerMessagePayload <|.. DTO_AnimalSelection
-    ServerMessagePayload <|.. DTO_Snapshot
-    ServerMessagePayload <|.. DTO_GameOver
-    ServerMessagePayload <|.. DTO_MatchCancelled
-    ServerMessagePayload <|.. DTO_ServerError
-    DTO_Snapshot *-- DTO_Pack : ownPack
-    DTO_Snapshot *-- "0..*" DTO_Animal : own and visible animals
-    DTO_Snapshot *-- "0..*" DTO_Zone : visibleZones
-    DTO_Snapshot *-- "0..*" DTO_CoffeeCup : visibleCoffeeCups
-    DTO_Snapshot *-- "0..*" DTO_Flag : visibleFlags
-    DTO_Animal --> DTO_Attack : optional attack animation
-    DTO_GameOver *-- "0..*" DTO_PackSummary
-
-    %% Representacion del mapa y geometria demostrativa
-    MapPanel --> SpriteCache : image and animation lookup
-    MapPanel --> DTO_Snapshot : renders server state
-    MapPanel o-- "0..*" ClickableAnimal : selection overlay
-    MapPanel *-- Animator : demonstration animation
-    MapPanel ..> FogOfWar : paints hidden map regions
+    ClientPanel ..> Snapshot : displays match results
+    GameController --|> MouseAdapter
+    GameController --> MapPanel : handles map interaction
+    GameController ..> ClickableAnimal : selection and targets
+    GameController ..> MapZones : resolves occupied zones
+    GameController ..> Consumer : sends commands
+    GameState o-- ModelObserver : notifies state changes
+    GameState --> ServerMessage : applies server responses
+    GameState --> AnimalSelection : selection state
+    GameState --> Snapshot : current match state
+    GameState --> GameOver : final result
+    MapPanel --> SpriteCache : loads visual assets
+    MapPanel --> Snapshot : renders server state
+    MapPanel ..> MapZones : calculates visible area
+    MapPanel ..> Connection : demonstration routes
     MapPanel ..> EnergyBar : paints animal energy
-    MapPanel ..> UIConstants : zoom, dimensions and colors
-    MapPanel o-- "0..*" MapPanelRoute : demonstration routes
-    MapPanel o-- "0..*" MapPanelZoneArea : demonstration zones
-    MapPanel o-- "0..*" JComboBox : route, direction and zone selectors
-    MapPanel o-- JButton : demonstration movement control
-    MapPanelRoute *-- Connection
-    MapPanelRoute *-- Path2D : cached route drawing
-    MapPanelZoneArea *-- Rectangle2D : demonstration bounds
-    MapPanel ..> Timer : repaint and demo animation timers
-    MapPanel ..> Graphics2D : paints map and entities
-    MapPanel ..> AffineTransform : applies zoom and camera translation
-    MapPanel ..> Ellipse2D : draws animal selection rings
-    MapPanel ..> BufferedImage : map and sprite frames
-    MapPanel ..> Area : visible game region
-    MapPanel ..> Point : screen click conversion
-    SpriteAnimation --> BufferedImage : idle image and frames
-    AnimatorState --> BufferedImage : current frame
-    SpriteCache ..> BufferedImage : cached rasterized assets
-    MapPanel ..> MapPanelMapDefinition : parses connections resource
-    MapPanel ..> MapPanelZoneMapDefinition : parses zone resource
-    MapPanelMapDefinition *-- "0..*" MapPanelPathDefinition
-    MapPanelPathDefinition *-- "2..*" MapPanelPathPoint
-    MapPanelPathDefinition ..> Connection : converted from route JSON
-    MapPanelZoneMapDefinition *-- "0..*" MapPanelZoneDefinition
-    MapPanelZoneDefinition ..> MapPanelZoneArea : validated zone bounds
-    Animator ..> AnimatorState : emits update callback value
-    Animator ..> Consumer : update callback
-    Animator ..> Connection : demonstration route input
-    Animator ..> Point2D : movement path coordinates
+    MapPanel ..> FogOfWar : paints hidden areas
+    MapPanel ..> UIConstants : appearance and zoom
+    MapPanel *-- Animator : demonstration animation
     Animator --> SpriteAnimation : animated frames
-    Animator --> Timer : animation clock
-    Animator ..> UIConstants : timer interval
-    MapZones ..> DTO_Zone : server zone centers
-    MapZones ..> Rectangle2D : builds Voronoi clipping area
-    MapZones ..> Path2D : clips map geometry
-    MapZones ..> Area : calculates visible region
-    Connection ..> Point2D : route coordinates
-    Zone ..> Point2D : legacy position field
-
-    %% Carga de sprites, animaciones y utilidades
-    SpriteCache *-- "0..*" SpriteAnimation : cached animations
-    SpriteCache ..> SpriteCacheAnimationManifest : parses manifest
-    SpriteCacheAnimationManifest *-- "0..*" SpriteCacheAnimalDefinition
-    SpriteCacheAnimalDefinition *-- "0..*" SpriteCacheFrameDefinition
-    SpriteCache ..> SpriteCacheSvgLoadResult : records SVG load outcome
-    SpriteCache ..> SpriteCacheBufferedImageTranscoder : rasterizes SVG
-    SpriteCache ..> Gson : parses animation manifest
-    SpriteCacheAnimalDefinition ..> SpriteAnimation : builds animation
-    SpriteCacheSvgLoadResult ..> BufferedImage : optional loaded image
-    EnergyBar ..> Graphics2D : draws energy bars
-    EnergyBar ..> UIConstants : reads colors and dimensions
-    FogOfWar ..> Graphics2D : draws fog overlay
-    FogOfWar ..> Area : clips visible and hidden regions
-    FogOfWar ..> RoundRectangle2D : draws fog edge
-    FogOfWar ..> UIConstants : reads fog appearance
-    UIConstants ..> Color : stores presentation colors
-    MapPanel ..> MapZones : game visibility geometry
-    ClientPanel ..> MapZones : validates supported zone centers
-    ClientPanel ..> AnimalSpecies : validates server species
-
-    %% Zone es un record legado que no participa en el flujo actual de produccion.
-    note for Zone "Record de modelo legado; el flujo activo usa MapZones y ServerMessage.Zone."
-    %% MessageSender.java esta vacio y no declara un tipo Java que pueda diagramarse.
-    note for NetworkClient "MessageSender.java esta vacio y no declara ningun tipo Java."
-    note for ServerMessage "DTO_ identifica records anidados; otros prefijos documentan nombres nested. MainWindowClosingAdapter y ClientResultsModel son aliases descriptivos de clases anonimas."
-    note for Main "Incluye todos los tipos declarados en src/main/java, incluidos los nested y auxiliares privados. Las clases de prueba y tipos rutinarios de colecciones no se listan."
+    NetworkClient ..|> AutoCloseable
+    NetworkClient --> ClientPanel : delivers received lines
+    ServerMessageParser --> ParseResult : returns parse result
+    ParseResult --> ServerMessage : validated message
+    ServerMessage *-- Payload : payload
+    Payload <|.. MatchCode
+    Payload <|.. PlayerJoined
+    Payload <|.. AnimalSelection
+    Payload <|.. Snapshot
+    Payload <|.. GameOver
+    Payload <|.. MatchCancelled
+    Payload <|.. ServerError
+    Snapshot *-- Pack : ownPack
+    Snapshot *-- "0..*" Animal : own and visible animals
+    Snapshot *-- "0..*" Zone : visible zones
+    Snapshot --> Zone : selected zone
+    Snapshot *-- "0..*" CoffeeCup : visible cups
+    Snapshot *-- "0..*" Flag : visible flags
+    Animal --> Attack : optional attack animation
+    GameOver *-- "0..*" PackSummary : match statistics

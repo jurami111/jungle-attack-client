@@ -25,14 +25,15 @@ estado válido.
 
 ## Alcance del diagrama
 
-`diagrama.mmd` incluye todos los tipos declarados en `src/main/java`, incluyendo
-records, enums, interfaces, tipos anidados y auxiliares privados, además de los
-dos tipos anónimos con comportamiento propio. Los tipos rutinarios
-de las bibliotecas externas se muestran solo cuando ayudan a explicar una
-relación arquitectónica; las clases de prueba no forman parte del diagrama.
-`MessageSender.java` está vacío y, por tanto, no declara un tipo Java que pueda
-representarse. `model.Zone` se conserva como record legado, pero no tiene
-consumidores en el flujo de producción actual.
+El diagrama único de clases aparece como bloque Mermaid en el `README.md`; su
+fuente editable se conserva en `docs/diagrama.mmd`. Prioriza las clases
+principales de cada capa, sus responsabilidades, las relaciones entre ellas y
+los tipos del protocolo que explican el flujo de datos. Incluye herencia,
+composición, implementación de interfaces y dependencias relevantes; omite
+detalles internos de construcción de la interfaz y records privados auxiliares
+para conservar la legibilidad. La especificacion describe responsabilidades
+adicionales que no requieren aparecer como nodos en el diagrama. `model.Zone`
+es un record legado sin consumidores en el flujo de produccion actual.
 
 ## Paquetes y clases
 
